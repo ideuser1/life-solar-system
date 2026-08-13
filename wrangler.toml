@@ -1,0 +1,15 @@
+# Cloudflare Pages configuration — ONLY needed if you put your dashboard
+# online (see README, "Put it online"). Safe to ignore for local use.
+#
+# 1. Pick your own project name below (this becomes part of your site's URL —
+#    a random suffix keeps the link hard to guess, e.g. "orbit-x7k2q9").
+# 2. Create your own key-value store for cross-device sync:
+#      wrangler kv namespace create SOLAR_STATE
+#    and paste the id it prints in place of the placeholder below.
+name = "my-solar-system"
+pages_build_output_dir = "."
+compatibility_date = "2026-08-01"
+
+[[kv_namespaces]]
+binding = "SOLAR_STATE"
+id = "PASTE_YOUR_KV_NAMESPACE_ID_HERE"

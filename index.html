@@ -1,0 +1,1462 @@
+﻿<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Life Solar System</title>
+<style>
+  :root{
+    --surface:#0b0f1e;
+    --surface-2:#111737;
+    --ink-primary:#eef1fb;
+    --ink-secondary:#a9b1d6;
+    --ink-muted:#6b7394;
+    --ring:#232b52;
+    --good:#3ecf8e;
+    --good-glow:rgba(62,207,142,0.55);
+    --focus:#7aa2ff;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  html{background:var(--surface);}
+  body{
+    background:
+      radial-gradient(ellipse at 20% 10%, #141b3d 0%, transparent 45%),
+      radial-gradient(ellipse at 80% 90%, #151032 0%, transparent 50%),
+      var(--surface);
+    color:var(--ink-primary);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  .stars{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background-image:
+      radial-gradient(1px 1px at 10% 20%, #ffffff55 50%, transparent 51%),
+      radial-gradient(1px 1px at 80% 15%, #ffffff44 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 60% 70%, #ffffff55 50%, transparent 51%),
+      radial-gradient(1px 1px at 30% 85%, #ffffff33 50%, transparent 51%),
+      radial-gradient(1px 1px at 90% 60%, #ffffff44 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 45% 40%, #ffffff33 50%, transparent 51%),
+      radial-gradient(1px 1px at 15% 55%, #ffffff33 50%, transparent 51%),
+      radial-gradient(1px 1px at 70% 30%, #ffffff33 50%, transparent 51%);
+    background-repeat:repeat;
+    background-size:600px 600px;
+    opacity:0.8;
+  }
+  header{
+    position:relative; z-index:1;
+    text-align:center;
+    padding:32px 20px 8px;
+  }
+  header h1{
+    margin:0 0 6px;
+    font-size:22px;
+    font-weight:650;
+    letter-spacing:0.01em;
+  }
+  header p{
+    margin:0;
+    color:var(--ink-secondary);
+    font-size:13.5px;
+  }
+  .legend{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    margin-top:14px; font-size:12.5px; color:var(--ink-secondary);
+  }
+  .legend .dot{
+    width:10px;height:10px;border-radius:50%;
+    background:var(--good);
+    box-shadow:0 0 8px 2px var(--good-glow);
+    display:inline-block;
+  }
+  .system-wrap{
+    position:relative; z-index:1;
+    width:min(1040px, 94vw, calc((100vh - 280px) * 2));
+    aspect-ratio:2/1;
+    margin:24px auto 8px;
+  }
+  .orbit{
+    position:absolute;
+    top:50%; left:50%;
+    border:1px solid var(--ring);
+    border-radius:50%;
+    transform:translate(-50%,-50%);
+  }
+  .sun{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    border:none; padding:0; cursor:pointer;
+    width:72px;height:72px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #ffe9a8, #ffb648 55%, #ff8a3d 100%);
+    box-shadow:0 0 40px 10px rgba(255,171,64,0.35), 0 0 90px 30px rgba(255,140,60,0.15);
+    z-index:3;
+  }
+  .sun:focus-visible{ outline:2px solid var(--focus); outline-offset:6px; }
+  .sun-label{
+    position:absolute; top:50%; left:50%; transform:translate(-50%, 46px);
+    font-size:11px; color:var(--ink-muted); text-align:center; width:120px;
+    z-index:3;
+  }
+  .planet-btn{
+    position:absolute; top:50%; left:50%;
+    border:none; background:none; cursor:pointer;
+    padding:0;
+    z-index:4;
+  }
+  .planet-btn:focus-visible .planet{ outline:2px solid var(--focus); outline-offset:4px; }
+  .planet{
+    border-radius:50%;
+    position:relative;
+    transition:transform 160ms ease;
+  }
+  .planet-btn:hover .planet{ transform:scale(1.08); }
+  .planet.active{
+    box-shadow:0 0 14px 4px rgba(62,207,142,0.32), 0 0 34px 14px rgba(62,207,142,0.16), 0 0 60px 26px rgba(62,207,142,0.07);
+  }
+  .planet-label{
+    position:absolute; top:100%; left:50%;
+    transform:translateX(-50%);
+    margin-top:6px;
+    font-size:12px; font-weight:600; color:var(--ink-primary);
+    white-space:nowrap;
+    text-shadow:0 1px 3px rgba(0,0,0,0.6);
+  }
+  .planet-status{
+    position:absolute; top:100%; left:50%;
+    transform:translateX(-50%);
+    margin-top:24px;
+    font-size:10.5px; color:var(--ink-muted);
+    white-space:nowrap;
+  }
+  .planet.active ~ .planet-status, .planet-btn.is-active .planet-status{ color:var(--good); }
+
+  /* view toggle + timeline */
+  .view-toggle{ display:flex; justify-content:center; margin-top:16px; }
+  .view-toggle button{
+    background:var(--surface-2); color:var(--ink-secondary);
+    border:1px solid var(--ring); padding:6px 18px; font-size:12.5px; cursor:pointer;
+  }
+  .view-toggle button + button{ border-left:none; }
+  .view-toggle button:first-child{ border-radius:8px 0 0 8px; }
+  .view-toggle button:last-child{ border-radius:0 8px 8px 0; }
+  .view-toggle button.sel{ background:var(--ring); color:var(--ink-primary); }
+  .timeline-wrap{
+    position:relative; z-index:1;
+    width:min(560px, 94vw);
+    margin:28px auto 8px;
+    display:none;
+  }
+  .tl-month{ font-size:12px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-muted); margin:20px 0 8px; }
+  .tl-item{
+    display:flex; align-items:center; gap:12px;
+    padding:10px 14px; margin-bottom:8px;
+    border:1px solid var(--ring); border-radius:10px;
+    background:rgba(17,23,55,0.45);
+    cursor:pointer;
+  }
+  .tl-item:hover{ border-color:var(--focus); }
+  .tl-date{ flex:none; width:52px; font-size:12px; color:var(--ink-secondary); }
+  .tl-dot{ flex:none; width:10px; height:10px; border-radius:50%; }
+  .tl-title{ margin:0; font-size:13px; color:var(--ink-primary); line-height:1.4; }
+  .tl-item.done .tl-title{ color:var(--ink-muted); text-decoration:line-through; }
+  .tl-area{ margin:2px 0 0; font-size:11px; color:var(--ink-muted); }
+  .tl-overdue{ color:#ff8fa3; font-weight:600; }
+  .tl-actions{ text-align:center; margin:18px 0 0; }
+  /* progress view: weekly habit grid */
+  .habit-grid{ overflow-x:auto; }
+  .habit-grid table{ border-collapse:collapse; width:100%; font-size:11px; }
+  .habit-grid th{ color:var(--ink-muted); font-weight:500; padding:4px 3px; text-align:center; }
+  .habit-grid td{ padding:3px; text-align:center; }
+  .habit-grid .hname{
+    text-align:left; color:var(--ink-secondary);
+    max-width:190px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    padding-right:8px;
+  }
+  .habit-grid .hname .tl-dot{ display:inline-block; margin-right:6px; vertical-align:middle; }
+  .hcell{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:22px; height:22px; border-radius:6px;
+    border:1px solid var(--ring); color:var(--ink-muted);
+  }
+  .hrow{ cursor:pointer; }
+  .hrow:hover .hname{ color:var(--ink-primary); }
+  .hrow.sel td{ background:rgba(122,162,255,0.09); }
+  /* per-goal week editor */
+  .week-editor{
+    margin-top:14px; padding:14px 16px;
+    border:1px solid var(--ring); border-radius:10px;
+    background:rgba(17,23,55,0.45);
+  }
+  .we-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+  .we-title{ margin:0; font-size:13px; font-weight:600; color:var(--ink-primary); }
+  .we-close{ background:none; border:none; color:var(--ink-muted); cursor:pointer; font-size:15px; padding:0 2px; }
+  .we-row{ display:flex; align-items:center; gap:12px; margin:9px 0; }
+  .we-label{ flex:none; width:104px; font-size:12px; color:var(--ink-secondary); }
+  .hcell.met{ background:rgba(62,207,142,0.22); border-color:var(--good); color:var(--good); }
+  .hcell.bonus{ background:rgba(62,207,142,0.22); border-color:var(--good); color:var(--good); }
+  .hcell.part{ border-color:var(--good); color:var(--ink-secondary); }
+  .hstreak{ font-size:11px; color:var(--ink-muted); white-space:nowrap; }
+  .hstreak.on{ color:var(--good); font-weight:600; }
+  .ics-btn{
+    background:var(--surface-2); color:var(--ink-primary);
+    border:1px solid var(--ring); border-radius:8px;
+    padding:8px 16px; font-size:12.5px; cursor:pointer;
+  }
+  .ics-btn:hover{ border-color:var(--focus); }
+
+  /* planet editor */
+  .edit-btn{
+    margin-top:10px;
+    background:none; color:var(--ink-muted);
+    border:none; font-size:12px; cursor:pointer;
+  }
+  .edit-btn:hover{ color:var(--ink-primary); }
+  .btn-sep{ color:var(--ink-muted); font-size:12px; margin:0 10px; vertical-align:middle; }
+  .ed-row{ display:flex; align-items:center; gap:8px; margin:8px 0; }
+  .ed-color{
+    width:34px; height:30px; flex:none;
+    border:1px solid var(--ring); border-radius:6px;
+    background:var(--surface); padding:2px; cursor:pointer;
+  }
+  .ed-name{
+    flex:1; min-width:0;
+    background:var(--surface); color:var(--ink-primary);
+    border:1px solid var(--ring); border-radius:6px;
+    padding:6px 8px; font-size:13px;
+  }
+  .ed-name:focus{ outline:none; border-color:var(--focus); }
+  .ed-del{
+    background:none; border:none; cursor:pointer; flex:none;
+    color:#ff8fa3; font-size:15px; line-height:1; padding:4px;
+  }
+  .ed-del:hover{ color:#ff5c7a; }
+  .ed-actions{ display:flex; gap:8px; margin:16px 0 10px; }
+
+  /* goal editor */
+  .ge-card{ border:1px solid var(--ring); border-radius:10px; padding:10px 12px; margin:10px 0; }
+  .ge-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .ge-status{
+    background:var(--surface); color:var(--ink-primary);
+    border:1px solid var(--ring); border-radius:6px;
+    padding:4px 6px; font-size:12px;
+  }
+  .ge-field{ display:block; font-size:11px; color:var(--ink-muted); margin:8px 0 0; }
+  .ge-field input, .ge-field textarea{ margin-top:3px; }
+  .ge-title{ width:100%; }
+  .ge-due{ width:100%; color-scheme:dark; }
+  .ge-pw, .ge-pwm{ width:58px; }
+  .ge-subs{
+    width:100%; min-height:52px; resize:vertical;
+    background:var(--surface); color:var(--ink-primary);
+    border:1px solid var(--ring); border-radius:6px;
+    padding:6px 8px; font-size:12px; font-family:inherit;
+  }
+  .ge-subs:focus{ outline:none; border-color:var(--focus); }
+
+  /* AI ideas panel */
+  .ai-chips{ display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
+  .ai-chip{
+    background:var(--surface); color:var(--ink-secondary);
+    border:1px solid var(--ring); border-radius:14px;
+    padding:4px 10px; font-size:11.5px; cursor:pointer;
+  }
+  .ai-chip:hover{ border-color:var(--focus); color:var(--ink-primary); }
+
+  /* side panel */
+  .panel-backdrop{
+    position:fixed; inset:0; background:rgba(4,6,16,0.55);
+    z-index:5; display:none;
+  }
+  .panel-backdrop.open{ display:block; }
+  .panel{
+    position:fixed; top:0; right:0; height:100%; width:min(340px, 88vw);
+    background:var(--surface-2);
+    border-left:1px solid var(--ring);
+    z-index:6;
+    transform:translateX(100%);
+    transition:transform 220ms ease;
+    padding:24px 22px;
+    overflow-y:auto;
+  }
+  .panel.open{ transform:translateX(0); }
+  .panel-close{
+    position:absolute; top:16px; right:16px;
+    background:none; border:none; color:var(--ink-secondary);
+    font-size:20px; cursor:pointer; line-height:1;
+  }
+  .panel h2{ margin:6px 0 4px; font-size:18px; }
+  .panel .status-row{
+    display:flex; align-items:center; gap:8px; margin:10px 0 16px;
+    font-size:13px; color:var(--ink-secondary);
+  }
+  .panel .status-row .dot{ width:9px;height:9px;border-radius:50%; background:var(--ink-muted); display:inline-block; }
+  .panel .status-row.active .dot{ background:var(--good); box-shadow:0 0 8px 2px var(--good-glow); }
+  .panel .status-row.active{ color:var(--good); }
+  .panel .note-label{ font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-muted); margin:0 0 4px; }
+  .panel .note{ font-size:13.5px; color:var(--ink-primary); line-height:1.5; margin:0 0 16px; }
+  .panel .updated{ font-size:11.5px; color:var(--ink-muted); }
+
+  /* goal list in the side panel */
+  .goal{ display:flex; gap:10px; margin:0 0 12px; }
+  .goal .gdot{
+    width:9px; height:9px; border-radius:50%; flex:none;
+    margin-top:5px; background:var(--ink-muted);
+  }
+  .goal.ongoing .gdot{ background:var(--good); box-shadow:0 0 8px 2px var(--good-glow); }
+  .goal .gcheck{ color:var(--good); font-size:12px; flex:none; line-height:1.4; }
+  .goal .gtitle{ margin:0; font-size:13.5px; color:var(--ink-primary); line-height:1.4; }
+  .goal.someday .gtitle{ color:var(--ink-secondary); }
+  .goal.done .gtitle{ color:var(--ink-muted); text-decoration:line-through; }
+  .goal .gnote{ margin:2px 0 0; font-size:12px; color:var(--ink-secondary); line-height:1.45; }
+  .goal .gupdated{ margin:2px 0 0; font-size:11px; color:var(--ink-muted); }
+
+  /* weekly tick circles */
+  .gticks{ display:flex; gap:6px; margin:7px 0 0; }
+  .tick{
+    width:16px; height:16px; border-radius:50%;
+    border:1px solid var(--ink-muted); background:transparent;
+    cursor:pointer; padding:0;
+  }
+  .tick.hit{ background:var(--good); border-color:var(--good); box-shadow:0 0 6px 1px var(--good-glow); }
+  .tick.bonus{ border-style:dashed; }
+  .gweek{ margin:5px 0 0; font-size:11px; color:var(--ink-muted); }
+
+  /* milestone sub-goals */
+  .gsubs{ margin:7px 0 0; }
+  .gsub{
+    display:flex; align-items:center; gap:8px; margin:4px 0;
+    background:none; border:none; cursor:pointer; padding:0; text-align:left;
+  }
+  .gsub .box{
+    width:13px; height:13px; border-radius:4px; flex:none;
+    border:1px solid var(--ink-muted);
+    display:flex; align-items:center; justify-content:center;
+    font-size:10px; color:#04160c;
+  }
+  .gsub.done .box{ background:var(--good); border-color:var(--good); }
+  .gsub .stitle{ font-size:12px; color:var(--ink-secondary); }
+  .gsub.done .stitle{ color:var(--ink-muted); text-decoration:line-through; }
+
+  footer{
+    position:relative; z-index:1;
+    text-align:center; color:var(--ink-muted); font-size:11.5px;
+    padding:18px 20px 34px;
+  }
+
+  /* friends view */
+  .fr-section{ margin:14px 0 26px; }
+  .fr-card{
+    border:1px solid var(--ring); border-radius:10px;
+    background:rgba(17,23,55,0.45);
+    padding:14px 16px; margin-bottom:12px;
+  }
+  .fr-head{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .fr-name{ margin:0; font-size:14px; font-weight:600; color:var(--ink-primary); }
+  .fr-updated{ font-size:11px; color:var(--ink-muted); white-space:nowrap; }
+  .fr-planets{ display:flex; flex-wrap:wrap; gap:10px 16px; margin-top:10px; }
+  .fr-planet{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-secondary); }
+  .fr-dot{ width:12px; height:12px; border-radius:50%; flex:none; display:inline-block; }
+  .fr-dot.glow{ box-shadow:0 0 8px 2px var(--good-glow); }
+  .fr-goals{ margin:10px 0 0; padding:0; list-style:none; }
+  .fr-goals li{ font-size:12px; color:var(--ink-secondary); margin:4px 0; padding-left:16px; position:relative; }
+  .fr-goals li::before{ content:''; position:absolute; left:2px; top:5px; width:7px; height:7px; border-radius:50%; background:var(--ink-muted); }
+  .fr-goals li.on::before{ background:var(--good); box-shadow:0 0 6px 1px var(--good-glow); }
+  .fr-code{
+    font-family:ui-monospace,Consolas,monospace; font-size:14px; letter-spacing:0.06em;
+    background:var(--surface); border:1px solid var(--ring); border-radius:8px;
+    padding:8px 12px; display:inline-block; margin:6px 8px 6px 0; color:var(--ink-primary);
+  }
+  .fr-row{ display:flex; gap:8px; margin:10px 0 16px; }
+  .fr-input{ flex:1; min-width:0; background:var(--surface); color:var(--ink-primary);
+    border:1px solid var(--ring); border-radius:6px; padding:8px 10px; font-size:13px; }
+  .fr-input:focus{ outline:none; border-color:var(--focus); }
+  .fr-check{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-secondary); margin:7px 0; cursor:pointer; }
+  .fr-check input{ accent-color:var(--good); margin:0; }
+  .fr-goal-check{ margin-left:28px; }
+  .fr-err{ color:#ff8fa3; font-size:12px; margin:8px 0 0; }
+  .fr-note{ font-size:12.5px; color:var(--ink-muted); line-height:1.55; margin:6px 0; }
+
+  /* narrow (portrait phone) screens: circular orbits use the space better.
+     NOTE: this block must stay at the END of the stylesheet so it overrides
+     the base rules above (same specificity — last one wins). */
+  @media (max-width: 620px){
+    .system-wrap{
+      width:min(94vw, calc(100vh - 360px));
+      aspect-ratio:1/1;
+      margin-top:12px;
+    }
+    header{ padding-top:20px; }
+    .sun{ width:52px; height:52px; }
+    .sun-label{ transform:translate(-50%, -50%); color:rgba(96,54,10,0.95); font-weight:600; }
+  }
+
+</style>
+</head>
+<body>
+<div class="stars"></div>
+
+<header>
+  <h1 id="pageTitle"></h1>
+  <p id="pageSubtitle"></p>
+  <div class="legend"><span class="dot"></span> Active — something's happening</div>
+  <div class="view-toggle">
+    <button id="viewSystem" class="sel">Solar System</button>
+    <button id="viewTimeline">Timeline</button>
+    <button id="viewProgress">Progress</button>
+    <button id="viewFriends">Friends</button>
+  </div>
+  <button class="edit-btn" id="editPlanets">✎ Edit planets</button><span class="btn-sep">·</span><button class="edit-btn" id="aiIdeas">💡 Get Ideas</button>
+</header>
+
+<div class="system-wrap" id="system"></div>
+
+<div class="timeline-wrap" id="timelineWrap">
+  <div id="timeline"></div>
+  <div class="tl-actions"><button class="ics-btn" id="icsBtn">⬇ Add deadlines to calendar (.ics)</button></div>
+</div>
+
+<div class="timeline-wrap" id="progressWrap">
+  <div id="progress"></div>
+</div>
+
+<div class="timeline-wrap" id="friendsWrap">
+  <div id="friends"></div>
+</div>
+
+<footer id="pageFooter"></footer>
+
+<div class="panel-backdrop" id="backdrop"></div>
+<div class="panel" id="panel">
+  <button class="panel-close" id="panelClose" aria-label="Close">&times;</button>
+  <div id="panelBody"></div>
+</div>
+
+<script src="data.js"></script>
+<script>
+  // The dashboard is a generic engine: everything it draws comes from
+  // the `system` object in data.js — unless planets were edited in the page,
+  // in which case the saved copy (synced across devices) takes over.
+  let cfg = (typeof system !== 'undefined') ? system
+          : { title:"Life Solar System", subtitle:"Add a data.js file next to this page to configure it.", sunLabel:"Me", areas:[] };
+
+  const ORBIT_PERIOD = 480; // seconds per lap, same for every planet
+
+  // a goal counts as ongoing if it's marked ongoing in data.js OR you've
+  // recorded any progress on it (a checked milestone, or a tick this week)
+  const subChecked = (a, g) => (g.subgoals || []).some((s, si) => store.get(a.label + '|' + g.title + '|sub' + si, s.done || false));
+  const tickCount = (a, g) => g.perWeek ? store.get(a.label + '|' + g.title + '|' + weekKey(), 0) : 0;
+  const goalOngoing = (a, g) => (g.status || 'someday') !== 'done' && (g.status === 'ongoing' || subChecked(a, g) || tickCount(a, g) > 0);
+  // a planet is "active" (green glow) when any of its goals is ongoing
+  const isActive = a => (a.goals || []).some(g => goalOngoing(a, g));
+
+  // ---- click-to-mark progress: localStorage locally + synced to the cloud ----
+  const store = {
+    get(k, fallback){ try{ const v = localStorage.getItem('lss:' + k); return v === null ? fallback : JSON.parse(v); }catch(e){ return fallback; } },
+    set(k, v){ try{ localStorage.setItem('lss:' + k, JSON.stringify(v)); }catch(e){} cloudSync.push(); socialPublish(); }
+  };
+
+  // cross-device sync via /api/state (Cloudflare KV). On load, the cloud copy
+  // wins key-by-key; clicks push the merged state back (debounced). If the API
+  // is unreachable (offline, or page opened as a local file), everything simply
+  // stays local — no errors.
+  function debounce(fn, ms){ let t; return () => { clearTimeout(t); t = setTimeout(fn, ms); }; }
+  const cloudSync = {
+    localSnapshot(){
+      const out = {};
+      for (let i = 0; i < localStorage.length; i++){
+        const k = localStorage.key(i);
+        if (k && k.startsWith('lss:')){
+          try{ out[k.slice(4)] = JSON.parse(localStorage.getItem(k)); }catch(e){}
+        }
+      }
+      return out;
+    },
+    push: debounce(() => {
+      fetch('/api/state', { method: 'PUT', body: JSON.stringify(cloudSync.localSnapshot()) }).catch(() => {});
+    }, 800),
+    async pull(onChanged){
+      try{
+        const res = await fetch('/api/state', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        let changed = false;
+        Object.entries(data).forEach(([k, v]) => {
+          const nv = JSON.stringify(v);
+          if (localStorage.getItem('lss:' + k) !== nv){ localStorage.setItem('lss:' + k, nv); changed = true; }
+        });
+        // first run: if the cloud is empty but this device has history, seed it
+        if (!Object.keys(data).length && Object.keys(cloudSync.localSnapshot()).length) cloudSync.push();
+        if (changed && onChanged) onChanged();
+      }catch(e){ /* offline or local file — local-only mode */ }
+    },
+  };
+  const pad2 = n => String(n).padStart(2, '0');
+  const todayISO = () => { const n = new Date(); return n.getFullYear() + '-' + pad2(n.getMonth() + 1) + '-' + pad2(n.getDate()); };
+  const fmtShortDate = iso => new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  // the Monday of the week `offsetWeeks` weeks ago (0 = this week)
+  function mondayOf(offsetWeeks){
+    const d = new Date();
+    const day = d.getDay() || 7; // 1=Mon … 7=Sun
+    d.setDate(d.getDate() - (day - 1) - offsetWeeks * 7);
+    return d;
+  }
+  // e.g. "2026-W31" — changes every Monday, which auto-resets the weekly ticks
+  function weekKey(forDate){
+    const now = forDate || new Date();
+    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const day = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - day);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return d.getUTCFullYear() + '-W' + week;
+  }
+
+  function setHeaderText(){
+    document.title = cfg.title;
+    document.getElementById('pageTitle').textContent = cfg.title;
+    document.getElementById('pageSubtitle').textContent = cfg.subtitle || '';
+    document.getElementById('pageFooter').textContent = cfg.footer || 'Click a planet for details · Edit data.js to update';
+  }
+  // planet edits made in the page are stored as '__config' in the synced state
+  function applyConfig(){
+    const saved = store.get('__config', null);
+    if (saved && saved.areas && saved.areas.length) cfg = saved;
+    setHeaderText();
+  }
+  applyConfig();
+
+  const wrap = document.getElementById('system');
+  const wrapSize = () => wrap.getBoundingClientRect().width;
+  const areaEls = []; // per-area {btn, planetDiv, statusDiv}, for live glow updates
+  const orbitAnim = []; // per-planet {btn, a, b, theta0} for the motion loop
+
+  // update each planet's glow/status in place (no rebuild, so orbits don't jump)
+  function refreshActive(){
+    cfg.areas.forEach((a, i) => {
+      const els = areaEls[i];
+      if (!els) return;
+      const act = isActive(a);
+      els.btn.classList.toggle('is-active', act);
+      els.btn.setAttribute('aria-label', a.label + (act ? ' — active' : ' — quiet'));
+      els.planetDiv.classList.toggle('active', act);
+      els.statusDiv.textContent = act ? 'Active' : 'Quiet';
+    });
+  }
+
+  function build(){
+    wrap.innerHTML = '';
+    areaEls.length = 0;
+    orbitAnim.length = 0;
+    const size = wrapSize();
+    const n = cfg.areas.length;
+    // ellipse squash: orbit height as a fraction of its width (matches the 2:1 wrap)
+    const rect = wrap.getBoundingClientRect();
+    const squash = rect.width ? rect.height / rect.width : 0.5;
+    // orbits spread evenly between an inner and outer radius, however many areas there are
+    // (on near-circular mobile layouts, start further out so inner-planet text clears the sun)
+    const rMin = (size/2) * (squash > 0.8 ? 0.52 : 0.46);
+    const rMax = (size/2) * 0.94;
+    // each orbit gets its own vertical squash, blended between two constraints:
+    // inner orbits stay round enough that text hanging below a planet clears
+    // the sun; outer orbits flatten so bottom text stays off the footer
+    const sunR = squash > 0.8 ? 26 : 36;
+    const fOuter = Math.min(squash, Math.max(40, rect.height/2 - 56) / rMax);
+    const fInner = Math.min(1, Math.max(fOuter, (sunR + 62) / rMin));
+    // angle stride: skip around the circle (not in order) so consecutive orbits
+    // land far apart — angles stay perfectly even, but the spiral look is gone
+    const gcd = (a, b) => b ? gcd(b, a % b) : a;
+    let stride = Math.max(1, Math.round(n / 2));
+    while (n > 1 && gcd(stride, n) !== 1) stride--;
+
+    // sun
+    const sun = document.createElement('button');
+    sun.className = 'sun';
+    sun.setAttribute('aria-label', cfg.sunLabel + ' — overview');
+    sun.addEventListener('click', openSunPanel);
+    wrap.appendChild(sun);
+    const sunLabel = document.createElement('div');
+    sunLabel.className = 'sun-label';
+    sunLabel.textContent = cfg.sunLabel;
+    wrap.appendChild(sunLabel);
+
+    cfg.areas.forEach((p, i) => {
+      const r = (n === 1) ? rMax : rMin + (rMax - rMin) * (i / (n - 1));
+      const angle = 270 + (360 / n) * ((i * stride) % n);   // even spacing, scattered order
+      const active = isActive(p);
+      const psize = p.size || 30;
+      const fi = (n === 1) ? fOuter : fInner + (fOuter - fInner) * (i / (n - 1));
+      const orbitEl = document.createElement('div');
+      orbitEl.className = 'orbit';
+      orbitEl.style.width = (r*2)+'px';
+      orbitEl.style.height = (r*2*fi)+'px';
+      wrap.appendChild(orbitEl);
+
+      const btn = document.createElement('button');
+      btn.className = 'planet-btn' + (active ? ' is-active' : '');
+      btn.style.width = psize + 'px';
+      btn.style.height = psize + 'px';
+      btn.setAttribute('aria-label', p.label + (active ? ' — active' : ' — quiet'));
+      // all planets orbit the same direction at the same speed, evenly offset,
+      // so they hold formation and can never overlap
+      orbitAnim.push({ btn, a: r, b: r * fi, theta0: angle * Math.PI / 180 });
+
+      const planetDiv = document.createElement('div');
+      planetDiv.className = 'planet' + (active ? ' active' : '');
+      planetDiv.style.width = psize + 'px';
+      planetDiv.style.height = psize + 'px';
+      planetDiv.style.background = `radial-gradient(circle at 35% 30%, ${shade(p.color,25)}, ${p.color} 60%, ${shade(p.color,-20)} 100%)`;
+
+      const labelDiv = document.createElement('div');
+      labelDiv.className = 'planet-label';
+      labelDiv.textContent = p.label;
+
+      const statusDiv = document.createElement('div');
+      statusDiv.className = 'planet-status';
+      statusDiv.textContent = active ? 'Active' : 'Quiet';
+
+      btn.appendChild(planetDiv);
+      btn.appendChild(labelDiv);
+      btn.appendChild(statusDiv);
+      btn.addEventListener('click', () => openPanel(p));
+      areaEls[i] = { btn, planetDiv, statusDiv };
+
+      wrap.appendChild(btn);
+    });
+    placePlanets(); // position immediately so nothing flashes at the center
+  }
+
+  // ---- orbital motion (JS-driven so orbits can be ellipses) ----
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let orbitPaused = false, orbitElapsed = 0, lastFrame = null;
+  wrap.addEventListener('mouseenter', () => { orbitPaused = true; });
+  wrap.addEventListener('mouseleave', () => { orbitPaused = false; });
+
+  function placePlanets(){
+    const phase = (orbitElapsed / ORBIT_PERIOD) * 2 * Math.PI;
+    orbitAnim.forEach(o => {
+      const th = o.theta0 + phase;
+      const x = o.a * Math.cos(th);
+      const y = o.b * Math.sin(th);
+      o.btn.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`;
+    });
+  }
+  function orbitFrame(now){
+    if (lastFrame === null) lastFrame = now;
+    if (!orbitPaused && !reducedMotion) orbitElapsed += (now - lastFrame) / 1000;
+    lastFrame = now;
+    placePlanets();
+    requestAnimationFrame(orbitFrame);
+  }
+  requestAnimationFrame(orbitFrame);
+
+  function shade(hex, percent){
+    const num = parseInt(hex.slice(1),16);
+    let r = (num>>16)+Math.round(255*percent/100);
+    let g = ((num>>8)&0x00FF)+Math.round(255*percent/100);
+    let b = (num&0x0000FF)+Math.round(255*percent/100);
+    r = Math.max(Math.min(255,r),0); g = Math.max(Math.min(255,g),0); b = Math.max(Math.min(255,b),0);
+    return '#'+(0x1000000+r*0x10000+g*0x100+b).toString(16).slice(1);
+  }
+
+  const backdrop = document.getElementById('backdrop');
+  const panel = document.getElementById('panel');
+  const panelBody = document.getElementById('panelBody');
+  const panelClose = document.getElementById('panelClose');
+
+  function openPanel(p){
+    const active = isActive(p);
+    const goals = p.goals || [];
+    const rows = goals.map((g, gi) => {
+      const status = goalOngoing(p, g) ? 'ongoing' : (g.status || 'someday');
+      let extras = '';
+      if (g.perWeek){
+        const max = Math.max(g.perWeekMax || g.perWeek, g.perWeek);
+        const count = store.get(p.label + '|' + g.title + '|' + weekKey(), 0);
+        const bonus = Math.max(0, count - g.perWeek);
+        extras += `<div class="gticks">` +
+          Array.from({length: max}, (_, t) =>
+            `<button class="tick ${t >= g.perWeek ? 'bonus' : ''} ${t < count ? 'hit' : ''}" data-gi="${gi}" data-t="${t}" aria-label="Mark ${t + 1} of ${max} this week"></button>`
+          ).join('') +
+          `</div><p class="gweek">${Math.min(count, g.perWeek)}/${g.perWeek} this week${bonus ? ` · +${bonus} bonus!` : ''} · resets Monday</p>`;
+      }
+      if (g.subgoals && g.subgoals.length){
+        extras += '<div class="gsubs">' + g.subgoals.map((s, si) => {
+          const done = store.get(p.label + '|' + g.title + '|sub' + si, s.done || false);
+          const when = (typeof done === 'string') ? ' · ' + fmtShortDate(done) : '';
+          return `<button class="gsub ${done ? 'done' : ''}" data-gi="${gi}" data-si="${si}"><span class="box">${done ? '✓' : ''}</span><span class="stitle">${s.title}${when}</span></button>`;
+        }).join('') + '</div>';
+      }
+      return `
+      <div class="goal ${status}">
+        ${status === 'done' ? '<span class="gcheck">✓</span>' : '<span class="gdot"></span>'}
+        <div>
+          <p class="gtitle">${g.title}</p>
+          ${g.note ? `<p class="gnote">${g.note}</p>` : ''}
+          ${extras}
+          ${g.updated ? `<p class="gupdated">Updated ${g.updated}</p>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+    panelBody.innerHTML = `
+      <h2>${p.label}</h2>
+      <div class="status-row ${active ? 'active' : ''}"><span class="dot"></span>${active ? 'Active — goals in motion' : 'Quiet — nothing active right now'}</div>
+      <p class="note-label">Goals</p>
+      ${rows || '<p class="note">No goals yet — click Edit goals below to add some.</p>'}
+      <div class="ed-actions"><button class="ics-btn" id="goalEditBtn">✎ Edit goals</button></div>
+    `;
+    panelBody.querySelector('#goalEditBtn').addEventListener('click', () => openGoalEditor(p));
+
+    // weekly ticks: click a circle to fill up to it; click your latest one to undo it
+    panelBody.querySelectorAll('.tick').forEach(el => el.addEventListener('click', () => {
+      const g = goals[+el.dataset.gi], t = +el.dataset.t;
+      const key = p.label + '|' + g.title + '|' + weekKey();
+      const count = store.get(key, 0);
+      store.set(key, (t < count) ? t : t + 1);
+      refreshActive();
+      openPanel(p);
+    }));
+    // milestones: click to toggle done
+    panelBody.querySelectorAll('.gsub').forEach(el => el.addEventListener('click', () => {
+      const g = goals[+el.dataset.gi], si = +el.dataset.si;
+      const key = p.label + '|' + g.title + '|sub' + si;
+      // checking stamps today's date (so the Progress view has real history)
+      store.set(key, store.get(key, g.subgoals[si].done || false) ? false : todayISO());
+      refreshActive();
+      openPanel(p);
+    }));
+
+    backdrop.classList.add('open');
+    panel.classList.add('open');
+  }
+  function openSunPanel(){
+    const activeCount = cfg.areas.filter(isActive).length;
+    panelBody.innerHTML = `
+      <h2>${cfg.sunLabel}</h2>
+      <div class="status-row ${activeCount ? 'active' : ''}"><span class="dot"></span>${activeCount ? activeCount + ' area' + (activeCount > 1 ? 's' : '') + ' active' : 'All quiet right now'}</div>
+      <p class="note-label">All areas</p>
+      ${cfg.areas.map(p => {
+        const goals = p.goals || [];
+        const ongoing = goals.filter(g => g.status === 'ongoing').length;
+        return `<p class="note" style="margin:0 0 8px;"><span style="color:${p.color}">●</span> ${p.label} — ${ongoing ? ongoing + ' ongoing' : 'quiet'}${goals.length ? ' · ' + goals.length + ' goal' + (goals.length > 1 ? 's' : '') : ''}</p>`;
+      }).join('')}
+    `;
+    backdrop.classList.add('open');
+    panel.classList.add('open');
+  }
+  function closePanel(){
+    backdrop.classList.remove('open');
+    panel.classList.remove('open');
+  }
+  backdrop.addEventListener('click', closePanel);
+  panelClose.addEventListener('click', closePanel);
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') closePanel(); });
+
+  // ---- timeline view & calendar export ----
+  const tlWrap = document.getElementById('timelineWrap');
+  const btnSys = document.getElementById('viewSystem');
+  const btnTl = document.getElementById('viewTimeline');
+
+  // every goal with a due date, across all areas, soonest first
+  function datedGoals(){
+    const items = [];
+    cfg.areas.forEach(a => (a.goals || []).forEach(g => { if (g.due) items.push({ a, g }); }));
+    items.sort((x, y) => x.g.due.localeCompare(y.g.due));
+    return items;
+  }
+
+  function buildTimeline(){
+    const el = document.getElementById('timeline');
+    const items = datedGoals();
+    const today = todayISO();
+    const fmt = (due, opts) => new Date(due + 'T00:00:00').toLocaleDateString(undefined, opts);
+    let html = '', lastMonth = '';
+    items.forEach(({ a, g }, i) => {
+      const month = fmt(g.due, { month: 'long', year: 'numeric' });
+      if (month !== lastMonth){ html += `<p class="tl-month">${month}</p>`; lastMonth = month; }
+      const overdue = g.due < today && g.status !== 'done';
+      html += `
+      <div class="tl-item ${g.status === 'done' ? 'done' : ''}" data-i="${i}">
+        <span class="tl-date">${fmt(g.due, { month: 'short', day: 'numeric' })}</span>
+        <span class="tl-dot" style="background:${a.color}"></span>
+        <div>
+          <p class="tl-title">${g.title}</p>
+          <p class="tl-area">${a.label}${overdue ? ' · <span class="tl-overdue">overdue</span>' : ''}</p>
+        </div>
+      </div>`;
+    });
+    el.innerHTML = html || '<p class="tl-area">No dated goals yet — give a goal a due:"YYYY-MM-DD" in data.js.</p>';
+    el.querySelectorAll('.tl-item').forEach(row =>
+      row.addEventListener('click', () => openPanel(items[+row.dataset.i].a)));
+  }
+
+  // ---- progress view: history of achievements ----
+  let selectedHabit = null; // index into the habit list; null = no editor open
+  function buildProgress(){
+    const el = document.getElementById('progress');
+    const fmtFull = iso => new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    let html = '';
+
+    // 1) goals fully completed (status "done" in data.js)
+    const doneGoals = [];
+    cfg.areas.forEach(a => (a.goals || []).forEach(g => { if (g.status === 'done') doneGoals.push({ a, g }); }));
+    doneGoals.sort((x, y) => (y.g.completed || y.g.updated || '').localeCompare(x.g.completed || x.g.updated || ''));
+    html += '<p class="tl-month">Goals completed</p>';
+    html += doneGoals.length ? doneGoals.map(({ a, g }) => `
+      <div class="tl-item">
+        <span class="tl-dot" style="background:${a.color}"></span>
+        <div><p class="tl-title">✓ ${g.title}</p><p class="tl-area">${a.label}${g.completed ? ' · ' + fmtFull(g.completed) : ''}</p></div>
+      </div>`).join('')
+      : '<p class="tl-area">Nothing fully completed yet — goals marked "done" will appear here.</p>';
+
+    // 2) milestones checked off (newest first; older checks may have no date)
+    const hits = [];
+    cfg.areas.forEach(a => (a.goals || []).forEach(g => (g.subgoals || []).forEach((s, si) => {
+      const v = store.get(a.label + '|' + g.title + '|sub' + si, s.done || false);
+      if (v) hits.push({ a, g, s, date: (typeof v === 'string') ? v : null });
+    })));
+    hits.sort((x, y) => (y.date || '').localeCompare(x.date || ''));
+    html += '<p class="tl-month">Milestones reached</p>';
+    html += hits.length ? hits.map((h, i) => `
+      <div class="tl-item" data-mi="${i}">
+        <span class="tl-dot" style="background:${h.a.color}"></span>
+        <div><p class="tl-title">✓ ${h.s.title}</p><p class="tl-area">${h.g.title} · ${h.a.label}${h.date ? ' · ' + fmtFull(h.date) : ''}</p></div>
+      </div>`).join('')
+      : '<p class="tl-area">No milestones checked off yet.</p>';
+
+    // 3) weekly habit history from this browser's saved ticks
+    const habits = [];
+    cfg.areas.forEach(a => (a.goals || []).forEach(g => { if (g.perWeek) habits.push({ a, g }); }));
+    if (habits.length){
+      const WEEKS = 8;
+      const offsets = []; // oldest → newest
+      for (let k = WEEKS - 1; k >= 0; k--) offsets.push(k);
+      const heads = offsets.map(k => { const m = mondayOf(k); return k === 0 ? 'now' : (m.getMonth() + 1) + '/' + m.getDate(); });
+      // current streak: consecutive weeks at or above the minimum, counting this
+      // week once it's met (an unfinished current week doesn't break the chain)
+      const streakOf = (a, g) => {
+        let s = 0;
+        if (store.get(a.label + '|' + g.title + '|' + weekKey(mondayOf(0)), 0) >= g.perWeek) s++;
+        for (let k = 1; k <= 260; k++){
+          if (store.get(a.label + '|' + g.title + '|' + weekKey(mondayOf(k)), 0) >= g.perWeek) s++;
+          else break;
+        }
+        return s;
+      };
+      html += '<p class="tl-month">Weekly habits — last 8 weeks (this device)</p>';
+      html += '<div class="habit-grid"><table><thead><tr><th></th>' + heads.map(h => `<th>${h}</th>`).join('') + '<th>streak</th></tr></thead><tbody>';
+      habits.forEach(({ a, g }, hi) => {
+        html += `<tr class="hrow ${selectedHabit === hi ? 'sel' : ''}" data-hi="${hi}"><td class="hname" title="${g.title}"><span class="tl-dot" style="background:${a.color}"></span>${g.title}</td>`;
+        offsets.forEach(k => {
+          const c = store.get(a.label + '|' + g.title + '|' + weekKey(mondayOf(k)), 0);
+          const cls = c >= g.perWeek ? (c > g.perWeek ? 'bonus' : 'met') : (c > 0 ? 'part' : '');
+          html += `<td><span class="hcell ${cls}">${c || '·'}</span></td>`;
+        });
+        const s = streakOf(a, g);
+        html += `<td><span class="hstreak ${s ? 'on' : ''}">${s ? s + 'w 🔥' : '–'}</span></td>`;
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+      html += '<p class="tl-area" style="margin-top:10px;">Green = minimum met (numbers past the minimum are bonus) · click a goal to edit its weeks</p>';
+
+      // editor for the selected goal: every week gets its own tick circles
+      if (selectedHabit !== null && habits[selectedHabit]){
+        const { a, g } = habits[selectedHabit];
+        const max = Math.max(g.perWeekMax || g.perWeek, g.perWeek);
+        html += `<div class="week-editor">
+          <div class="we-head"><p class="we-title">${g.title}</p><button class="we-close" id="weClose" aria-label="Close editor">✕</button></div>`;
+        offsets.slice().reverse().forEach(k => { // newest first
+          const m = mondayOf(k);
+          const label = k === 0 ? 'This week' : 'Week of ' + (m.getMonth() + 1) + '/' + m.getDate();
+          const count = store.get(a.label + '|' + g.title + '|' + weekKey(m), 0);
+          html += `<div class="we-row"><span class="we-label">${label}</span><div class="gticks">` +
+            Array.from({length: max}, (_, t) =>
+              `<button class="tick ${t >= g.perWeek ? 'bonus' : ''} ${t < count ? 'hit' : ''}" data-k="${k}" data-t="${t}" aria-label="${label}: mark ${t + 1} of ${max}"></button>`
+            ).join('') + `</div></div>`;
+        });
+        html += '</div>';
+      }
+    }
+
+    el.innerHTML = html;
+
+    // select a goal row to open its week editor (clicking it again closes it)
+    el.querySelectorAll('.hrow').forEach(row => row.addEventListener('click', () => {
+      const hi = +row.dataset.hi;
+      selectedHabit = (selectedHabit === hi) ? null : hi;
+      buildProgress();
+    }));
+    const weClose = el.querySelector('#weClose');
+    if (weClose) weClose.addEventListener('click', () => { selectedHabit = null; buildProgress(); });
+    // editor ticks: same behavior as the panel — click to fill up to it, click your latest to undo
+    el.querySelectorAll('.week-editor .tick').forEach(tk => tk.addEventListener('click', () => {
+      const { a, g } = habits[selectedHabit];
+      const key = a.label + '|' + g.title + '|' + weekKey(mondayOf(+tk.dataset.k));
+      const t = +tk.dataset.t;
+      const count = store.get(key, 0);
+      store.set(key, (t < count) ? t : t + 1);
+      refreshActive();
+      buildProgress();
+    }));
+    // click a milestone to open its planet's panel (to re-check or un-check)
+    el.querySelectorAll('.tl-item[data-mi]').forEach(row => row.addEventListener('click', () => {
+      openPanel(hits[+row.dataset.mi].a);
+    }));
+  }
+
+  const progWrap = document.getElementById('progressWrap');
+  const btnProg = document.getElementById('viewProgress');
+  const friendsWrap = document.getElementById('friendsWrap');
+  const btnFriends = document.getElementById('viewFriends');
+  const views = {
+    system:   { el: wrap,     btn: btnSys,  build: null },
+    timeline: { el: tlWrap,   btn: btnTl,   build: buildTimeline },
+    progress: { el: progWrap, btn: btnProg, build: buildProgress },
+    friends:  { el: friendsWrap, btn: btnFriends, build: () => { buildFriends(); refreshFriends(); } },
+  };
+  function setView(name){
+    Object.entries(views).forEach(([k, v]) => {
+      v.el.style.display = (k === name) ? 'block' : 'none';
+      v.btn.classList.toggle('sel', k === name);
+    });
+    if (views[name].build) views[name].build();
+  }
+  btnSys.addEventListener('click', () => setView('system'));
+  btnTl.addEventListener('click', () => setView('timeline'));
+  btnProg.addEventListener('click', () => setView('progress'));
+  btnFriends.addEventListener('click', () => setView('friends'));
+
+  // .ics calendar file: one all-day event per dated goal.
+  // Import it into Google Calendar — or, once the dashboard is hosted online,
+  // Google Calendar can subscribe to the file's URL and stay in sync.
+  function icsEscape(s){ return s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,'); }
+  function buildICS(){
+    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Life Solar System//EN',
+                   'CALSCALE:GREGORIAN', 'X-WR-CALNAME:' + icsEscape(cfg.title)];
+    datedGoals().forEach(({ a, g }) => {
+      const start = g.due.replace(/-/g, '');
+      const d = new Date(g.due + 'T00:00:00');
+      d.setDate(d.getDate() + 1); // all-day events end the following day
+      const end = d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate());
+      const uid = (a.label + '-' + g.title).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80) + '@life-solar-system';
+      lines.push('BEGIN:VEVENT', 'UID:' + uid, 'DTSTAMP:' + start + 'T000000Z',
+                 'DTSTART;VALUE=DATE:' + start, 'DTEND;VALUE=DATE:' + end,
+                 'SUMMARY:' + icsEscape(g.title + ' (' + a.label + ')'), 'END:VEVENT');
+    });
+    lines.push('END:VCALENDAR');
+    return lines.join('\r\n');
+  }
+  document.getElementById('icsBtn').addEventListener('click', () => {
+    const blob = new Blob([buildICS()], { type: 'text/calendar' });
+    const aEl = document.createElement('a');
+    aEl.href = URL.createObjectURL(blob);
+    aEl.download = 'life-goals.ics';
+    aEl.click();
+    URL.revokeObjectURL(aEl.href);
+  });
+
+  // ---- planet editor: add/remove/rename/recolor areas from the page ----
+  const PALETTE = ['#7aa2ff','#b48cff','#ff8fa3','#5fd0c7','#8fd3ff','#ff9d76','#5cb85c','#ff8fd8','#d9b26a','#b9a7f0'];
+
+  // when a planet or goal is renamed, move its saved clicks to the new name
+  function keysWithPrefix(prefix){
+    const found = [];
+    for (let i = 0; i < localStorage.length; i++){
+      const k = localStorage.key(i);
+      if (k && k.startsWith(prefix)) found.push(k);
+    }
+    return found;
+  }
+  function renameClickPrefix(oldPrefix, newPrefix){
+    keysWithPrefix(oldPrefix).forEach(k => {
+      localStorage.setItem(newPrefix + k.slice(oldPrefix.length), localStorage.getItem(k));
+      localStorage.removeItem(k);
+    });
+  }
+  function renameClickKeys(oldLabel, newLabel){
+    renameClickPrefix('lss:' + oldLabel + '|', 'lss:' + newLabel + '|');
+  }
+
+  function editorRow(label, color, origIndex){
+    return `<div class="ed-row" data-i="${origIndex}">
+      <input type="color" class="ed-color" value="${color}" aria-label="Planet color">
+      <input type="text" class="ed-name" value="${label.replace(/"/g, '&quot;')}" aria-label="Planet name">
+      <button class="ed-del" title="Remove planet" aria-label="Remove planet"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
+    </div>`;
+  }
+
+  function openEditor(){
+    panelBody.innerHTML = `
+      <h2>Edit planets</h2>
+      <p class="note-label">Name & color</p>
+      <div id="edRows">${cfg.areas.map((a, i) => editorRow(a.label, a.color, i)).join('')}</div>
+      <button class="ics-btn" id="edAdd">+ Add planet</button>
+      <div class="ed-actions">
+        <button class="ics-btn" id="edSave">Save</button>
+        <button class="ics-btn" id="edCancel">Cancel</button>
+      </div>
+      <p class="gupdated">Goals stay with a planet when you rename it. Removing a planet removes its goals from the dashboard. Edits sync to all your devices.</p>
+    `;
+    const rowsEl = panelBody.querySelector('#edRows');
+    const wireDelete = btn => btn.addEventListener('click', () => {
+      const row = btn.closest('.ed-row');
+      const name = row.querySelector('.ed-name').value.trim() || 'this planet';
+      if (confirm('Remove "' + name + '" and its goals from the dashboard?')) row.remove();
+    });
+    rowsEl.querySelectorAll('.ed-del').forEach(wireDelete);
+    panelBody.querySelector('#edAdd').addEventListener('click', () => {
+      const color = PALETTE[rowsEl.children.length % PALETTE.length];
+      rowsEl.insertAdjacentHTML('beforeend', editorRow('New planet', color, 'new'));
+      const row = rowsEl.lastElementChild;
+      wireDelete(row.querySelector('.ed-del'));
+      row.querySelector('.ed-name').select();
+    });
+    panelBody.querySelector('#edCancel').addEventListener('click', closePanel);
+    panelBody.querySelector('#edSave').addEventListener('click', () => {
+      const rows = [...rowsEl.querySelectorAll('.ed-row')];
+      const seen = new Set();
+      const areas = rows.map(row => {
+        const label = row.querySelector('.ed-name').value.trim();
+        const color = row.querySelector('.ed-color').value;
+        if (!label || seen.has(label)) return null;
+        seen.add(label);
+        const orig = row.dataset.i === 'new' ? null : cfg.areas[+row.dataset.i];
+        if (orig && orig.label !== label){ renameClickKeys(orig.label, label); socialRenamePlanet(orig.label, label); }
+        return orig ? { ...orig, label, color } : { label, color, goals: [] };
+      }).filter(Boolean);
+      if (!areas.length){ alert('Keep at least one planet.'); return; }
+      cfg = { ...cfg, areas };
+      store.set('__config', cfg); // saves locally + syncs to the cloud
+      setHeaderText();
+      build();
+      closePanel();
+    });
+    backdrop.classList.add('open');
+    panel.classList.add('open');
+  }
+  document.getElementById('editPlanets').addEventListener('click', openEditor);
+
+  // ---- goal editor: revise a planet's goals from the page ----
+  const escAttr = s => (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const TRASH_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+
+  function goalEditorCard(g, gi){
+    const st = g.status || 'someday';
+    return `<div class="ge-card" data-gi="${gi}">
+      <div class="ge-head">
+        <select class="ge-status">
+          <option value="ongoing" ${st === 'ongoing' ? 'selected' : ''}>Ongoing</option>
+          <option value="someday" ${st === 'someday' ? 'selected' : ''}>Someday</option>
+          <option value="done" ${st === 'done' ? 'selected' : ''}>Done</option>
+        </select>
+        <button class="ed-del ge-del" title="Remove goal" aria-label="Remove goal">${TRASH_SVG}</button>
+      </div>
+      <input class="ed-name ge-title" value="${escAttr(g.title)}" placeholder="What's the goal?">
+      <label class="ge-field">Due date (optional)<input type="date" class="ed-name ge-due" value="${g.due || ''}"></label>
+      <label class="ge-field">Note (optional)<input class="ed-name ge-note" value="${escAttr(g.note)}"></label>
+      <label class="ge-field">Weekly circles: minimum <input type="number" class="ed-name ge-pw" min="0" max="14" value="${g.perWeek || ''}"> with bonus up to <input type="number" class="ed-name ge-pwm" min="0" max="14" value="${g.perWeekMax || ''}"></label>
+      <label class="ge-field">Milestones, one per line (optional)<textarea class="ge-subs">${escAttr((g.subgoals || []).map(s => s.title).join('\n'))}</textarea></label>
+    </div>`;
+  }
+
+  function openGoalEditor(p){
+    const goals = p.goals || [];
+    panelBody.innerHTML = `
+      <h2>${p.label} — edit goals</h2>
+      <div id="geList">${goals.map((g, gi) => goalEditorCard(g, gi)).join('')}</div>
+      <button class="ics-btn" id="geAdd">+ Add goal</button>
+      <div class="ed-actions">
+        <button class="ics-btn" id="geSave">Save</button>
+        <button class="ics-btn" id="geCancel">Cancel</button>
+      </div>
+      <p class="gupdated">Ongoing = planet glows. Milestones keep their ✓ when their text stays the same. Edits sync to all your devices.</p>
+    `;
+    const list = panelBody.querySelector('#geList');
+    const wireDelete = btn => btn.addEventListener('click', () => {
+      const card = btn.closest('.ge-card');
+      const name = card.querySelector('.ge-title').value.trim() || 'this goal';
+      if (confirm('Remove "' + name + '"?')) card.remove();
+    });
+    list.querySelectorAll('.ge-del').forEach(wireDelete);
+    panelBody.querySelector('#geAdd').addEventListener('click', () => {
+      list.insertAdjacentHTML('beforeend', goalEditorCard({ status: 'someday' }, 'new'));
+      const card = list.lastElementChild;
+      wireDelete(card.querySelector('.ge-del'));
+      card.querySelector('.ge-title').focus();
+    });
+    panelBody.querySelector('#geCancel').addEventListener('click', () => openPanel(p));
+    panelBody.querySelector('#geSave').addEventListener('click', () => {
+      const cards = [...list.querySelectorAll('.ge-card')];
+      const newGoals = cards.map(card => {
+        const orig = card.dataset.gi === 'new' ? {} : (goals[+card.dataset.gi] || {});
+        const title = card.querySelector('.ge-title').value.trim();
+        if (!title) return null;
+        const g = { ...orig, title, status: card.querySelector('.ge-status').value };
+        const due = card.querySelector('.ge-due').value;
+        const note = card.querySelector('.ge-note').value.trim();
+        const pw = parseInt(card.querySelector('.ge-pw').value, 10);
+        const pwm = parseInt(card.querySelector('.ge-pwm').value, 10);
+        if (due) g.due = due; else delete g.due;
+        if (note) g.note = note; else delete g.note;
+        if (pw > 0) g.perWeek = pw; else { delete g.perWeek; delete g.perWeekMax; }
+        if (pw > 0 && pwm > pw) g.perWeekMax = pwm; else delete g.perWeekMax;
+        const subTitles = card.querySelector('.ge-subs').value.split('\n').map(s => s.trim()).filter(Boolean);
+        if (subTitles.length){
+          // carry each milestone's ✓ (and its date) over by matching text
+          g.subgoals = subTitles.map(t => {
+            const oi = (orig.subgoals || []).findIndex(s => s.title === t);
+            const done = (oi >= 0) ? store.get(p.label + '|' + orig.title + '|sub' + oi, orig.subgoals[oi].done || false) : false;
+            return done ? { title: t, done } : { title: t };
+          });
+        } else delete g.subgoals;
+        if (orig.title && orig.title !== title){
+          renameClickPrefix('lss:' + p.label + '|' + orig.title + '|', 'lss:' + p.label + '|' + title + '|');
+          socialRenameGoal(p.label, orig.title, title);
+        }
+        // milestone ✓s are baked into the config now — drop the loose click keys
+        keysWithPrefix('lss:' + p.label + '|' + title + '|sub').forEach(k => localStorage.removeItem(k));
+        if (g.status === 'done' && !g.completed) g.completed = todayISO();
+        if (g.status !== 'done') delete g.completed;
+        if (JSON.stringify(g) !== JSON.stringify(orig)){
+          g.updated = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        return g;
+      }).filter(Boolean);
+      p.goals = newGoals;
+      store.set('__config', cfg); // saves + syncs (also pushes the removed keys)
+      build();
+      openPanel(p);
+    });
+  }
+
+  // ---- AI ideas: ask for suggestions, add them with one tap ----
+  function applySuggestion(s){
+    let area = cfg.areas.find(a => a.label.toLowerCase() === String(s.planet || '').toLowerCase());
+    if (!area){
+      area = { label: s.planet || 'New planet', color: PALETTE[cfg.areas.length % PALETTE.length], goals: [] };
+      cfg.areas.push(area);
+    }
+    if (s.title){
+      const g = { title: s.title, status: s.status === 'ongoing' ? 'ongoing' : 'someday' };
+      if (s.due) g.due = s.due;
+      if (s.note) g.note = s.note;
+      if (s.perWeek > 0){
+        g.perWeek = s.perWeek;
+        if (s.perWeekMax > s.perWeek) g.perWeekMax = s.perWeekMax;
+      }
+      area.goals = area.goals || [];
+      area.goals.push(g);
+    }
+    store.set('__config', cfg); // saves + syncs
+    setHeaderText();
+    build();
+  }
+
+  function renderSuggestions(out, data){
+    const msg = `<p class="note">${escAttr(data.message || '')}</p>`;
+    const cards = (data.suggestions || []).map((s, i) => {
+      const head = s.kind === 'planet' ? '🪐 New planet: ' + s.planet : s.title;
+      const bits = [];
+      if (s.kind !== 'planet') bits.push('Planet: ' + s.planet);
+      else if (s.title) bits.push('Starter goal: ' + s.title);
+      if (s.due) bits.push('due ' + s.due);
+      if (s.perWeek > 0) bits.push(s.perWeek + 'x/week' + (s.perWeekMax > s.perWeek ? ' (+bonus)' : ''));
+      return `<div class="ge-card">
+        <p class="gtitle">${escAttr(head)}</p>
+        ${bits.length ? `<p class="gnote">${escAttr(bits.join(' · '))}</p>` : ''}
+        ${s.note ? `<p class="gnote">${escAttr(s.note)}</p>` : ''}
+        <div class="ed-actions"><button class="ics-btn ai-add" data-i="${i}">+ Add</button></div>
+      </div>`;
+    }).join('');
+    out.innerHTML = msg + cards;
+    out.querySelectorAll('.ai-add').forEach(btn => btn.addEventListener('click', () => {
+      applySuggestion(data.suggestions[+btn.dataset.i]);
+      btn.textContent = 'Added ✓';
+      btn.disabled = true;
+    }));
+  }
+
+  function openAiPanel(){
+    panelBody.innerHTML = `
+      <h2>💡 Get Ideas</h2>
+      <p class="note">Ask for goal ideas, new planets, or feedback. The AI sees your current planets and goals.</p>
+      <div class="ai-chips">
+        <button class="ai-chip">Suggest goals for my planets</button>
+        <button class="ai-chip">Suggest a new planet for me</button>
+        <button class="ai-chip">How can I improve my current goals?</button>
+      </div>
+      <textarea class="ge-subs" id="aiQ" placeholder="What do you want ideas about?"></textarea>
+      <div class="ed-actions"><button class="ics-btn" id="aiAsk">Ask</button></div>
+      <div id="aiOut"></div>
+    `;
+    const q = panelBody.querySelector('#aiQ');
+    const out = panelBody.querySelector('#aiOut');
+    const askBtn = panelBody.querySelector('#aiAsk');
+    panelBody.querySelectorAll('.ai-chip').forEach(chip =>
+      chip.addEventListener('click', () => { q.value = chip.textContent; q.focus(); }));
+    askBtn.addEventListener('click', async () => {
+      if (!q.value.trim()) return;
+      askBtn.disabled = true;
+      out.innerHTML = '<p class="note">Thinking… (this can take up to a minute)</p>';
+      // send a compact view of the system as context
+      const compact = {
+        title: cfg.title,
+        areas: cfg.areas.map(a => ({
+          planet: a.label,
+          goals: (a.goals || []).map(g => ({ title: g.title, status: g.status, due: g.due, perWeek: g.perWeek })),
+        })),
+      };
+      try {
+        const res = await fetch('/api/suggest', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ question: q.value.trim(), config: compact }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok){
+          out.innerHTML = '<p class="note">' + (
+            res.status === 503 ? 'The AI isn’t set up yet — an Anthropic API key needs to be added to the site (see the project README or ask Claude).' :
+            res.status === 429 ? 'Hourly AI limit reached — try again in a bit.' :
+            'Something went wrong talking to the AI. Try again in a moment.') + '</p>';
+          return;
+        }
+        renderSuggestions(out, data);
+      } catch (e) {
+        out.innerHTML = '<p class="note">Couldn’t reach the AI — are you online? (This feature only works on the live site, not the local file.)</p>';
+      } finally {
+        askBtn.disabled = false;
+      }
+    });
+    backdrop.classList.add('open');
+    panel.classList.add('open');
+  }
+  document.getElementById('aiIdeas').addEventListener('click', openAiPanel);
+
+  // ---- friends: publish a privacy-filtered summary to the hub; follow codes ----
+  // The hub is a separate tiny site: it stores, per friend code, ONLY the
+  // summary built below (never your full state), and a code is read-only —
+  // updating your summary needs the writeKey that stays in your own state.
+  const HUB_URL = cfg.hubUrl || 'https://solar-friends-hub.pages.dev';
+
+  const social = {
+    get(){ return store.get('__social', null) || { on:false, code:'', writeKey:'', shareTitles:false, hidden:[], hiddenGoals:[], friends:[] }; },
+    save(s){ store.set('__social', s); },   // store.set also re-publishes
+    randomCode(){
+      const chars = 'abcdefghjkmnpqrstuvwxyz23456789'; // no look-alike 0/o/1/l/i
+      const buf = new Uint32Array(10);
+      crypto.getRandomValues(buf);
+      let s = '';
+      buf.forEach(v => { s += chars[v % chars.length]; });
+      return 'sun-' + s.slice(0, 5) + '-' + s.slice(5);
+    },
+    randomKey(){
+      const buf = new Uint8Array(16);
+      crypto.getRandomValues(buf);
+      return [...buf].map(b => b.toString(16).padStart(2, '0')).join('');
+    },
+    // what friends get to see — and nothing else ever leaves for the hub
+    summary(){
+      const s = social.get();
+      const areas = cfg.areas.filter(a => !(s.hidden || []).includes(a.label)).map(a => {
+        const out = { label: a.label, color: a.color, active: isActive(a) };
+        if (s.shareTitles){
+          out.goals = (a.goals || [])
+            .filter(g => (g.status || 'someday') !== 'done' && !(s.hiddenGoals || []).includes(a.label + '|' + g.title))
+            .map(g => ({ title: g.title, on: goalOngoing(a, g) }));
+        }
+        return out;
+      });
+      return { name: cfg.sunLabel, areas };
+    },
+    publish: debounce(() => {
+      const s = social.get();
+      if (!s.on || !s.code) return;
+      fetch(HUB_URL + '/api/system/' + s.code, {
+        method: 'PUT', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ writeKey: s.writeKey, summary: social.summary() }),
+      }).catch(() => {});
+    }, 2000),
+    unpublish(s){
+      return fetch(HUB_URL + '/api/system/' + s.code, {
+        method: 'DELETE', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ writeKey: s.writeKey }),
+      }).catch(() => {});
+    },
+  };
+  function socialPublish(){ try{ social.publish(); }catch(e){} }
+  // keep privacy choices attached to their planet/goal through renames
+  function socialRenamePlanet(oldL, newL){
+    const s = social.get();
+    s.hidden = (s.hidden || []).map(l => l === oldL ? newL : l);
+    s.hiddenGoals = (s.hiddenGoals || []).map(k => k.startsWith(oldL + '|') ? newL + k.slice(oldL.length) : k);
+    social.save(s);
+  }
+  function socialRenameGoal(planet, oldT, newT){
+    const s = social.get();
+    s.hiddenGoals = (s.hiddenGoals || []).map(k => k === planet + '|' + oldT ? planet + '|' + newT : k);
+    social.save(s);
+  }
+
+  const friendsCache = {}; // code → {summary, updated} or {error}
+  const safeColor = c => /^#[0-9a-fA-F]{3,8}$/.test(String(c || '')) ? c : '#7aa2ff';
+  function timeAgo(iso){
+    const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (mins < 2) return 'just now';
+    if (mins < 60) return mins + ' min ago';
+    const h = Math.round(mins / 60);
+    if (h < 36) return h + ' h ago';
+    return Math.round(h / 24) + ' d ago';
+  }
+
+  async function fetchFriend(code){
+    try{
+      const res = await fetch(HUB_URL + '/api/system/' + encodeURIComponent(code), { cache: 'no-store' });
+      if (res.status === 404){ friendsCache[code] = { error: 'Nothing shared under this code — check it, or they may have stopped sharing.' }; return; }
+      if (!res.ok){ friendsCache[code] = { error: 'The hub had a problem — try again later.' }; return; }
+      friendsCache[code] = await res.json();
+    }catch(e){ friendsCache[code] = { error: 'Couldn’t reach the hub — are you online?' }; }
+  }
+  function refreshFriends(){
+    (social.get().friends || []).forEach(f => fetchFriend(f.code).then(() => {
+      if (friendsWrap.style.display === 'block') buildFriends();
+    }));
+  }
+
+  // a friend's summary is someone else's text — escape everything we render
+  function friendCard(f){
+    const c = friendsCache[f.code];
+    let body;
+    if (!c) body = '<p class="fr-note">Loading…</p>';
+    else if (c.error) body = `<p class="fr-err">${escAttr(c.error)}</p>`;
+    else {
+      const sum = c.summary || {};
+      const planets = (sum.areas || []).slice(0, 30).map(a =>
+        `<span class="fr-planet"><span class="fr-dot ${a.active ? 'glow' : ''}" style="background:${safeColor(a.color)}"></span>${escAttr(String(a.label || '').slice(0, 40))}</span>`
+      ).join('');
+      const goals = (sum.areas || []).slice(0, 30).flatMap(a => (a.goals || []).slice(0, 20).map(g =>
+        `<li class="${g.on ? 'on' : ''}">${escAttr(String(g.title || '').slice(0, 120))} <span style="color:var(--ink-muted)">· ${escAttr(String(a.label || '').slice(0, 40))}</span></li>`
+      )).join('');
+      body = `<div class="fr-planets">${planets || '<span class="fr-note">Nothing shared yet.</span>'}</div>` +
+             (goals ? `<ul class="fr-goals">${goals}</ul>` : '');
+    }
+    return `<div class="fr-card">
+      <div class="fr-head"><p class="fr-name">${escAttr(f.name || f.code)}</p>
+      <span class="fr-updated">${c && c.updated ? escAttr(timeAgo(c.updated)) + ' ' : ''}<button class="ed-del fr-del" data-code="${escAttr(f.code)}" title="Remove friend" aria-label="Remove friend">${TRASH_SVG}</button></span></div>
+      ${body}
+    </div>`;
+  }
+
+  function buildFriends(){
+    const el = document.getElementById('friends');
+    const s = social.get();
+
+    let sharing;
+    if (!s.on){
+      sharing = `
+        <p class="fr-note">Sharing is <b>off</b> — nothing about your solar system leaves this dashboard.
+        Turn it on to get a <b>friend code</b>: friends who enter it see your planet names, colors, and
+        which planets are glowing. Goal titles stay private unless you choose to share them too.</p>
+        <div class="ed-actions"><button class="ics-btn" id="frStart">Start sharing</button></div>`;
+    } else {
+      const planetRows = cfg.areas.map(a => {
+        const hiddenP = (s.hidden || []).includes(a.label);
+        let row = `<label class="fr-check"><input type="checkbox" class="fr-p" data-label="${escAttr(a.label)}" ${hiddenP ? '' : 'checked'}><span class="fr-dot" style="background:${safeColor(a.color)}"></span>${escAttr(a.label)}</label>`;
+        if (s.shareTitles && !hiddenP){
+          row += (a.goals || []).filter(g => (g.status || 'someday') !== 'done').map(g => {
+            const key = a.label + '|' + g.title;
+            return `<label class="fr-check fr-goal-check"><input type="checkbox" class="fr-g" data-key="${escAttr(key)}" ${(s.hiddenGoals || []).includes(key) ? '' : 'checked'}>${escAttr(g.title)}</label>`;
+          }).join('');
+        }
+        return row;
+      }).join('');
+      sharing = `
+        <p class="fr-note">Give friends this code — it lets them <b>see</b> what you share below, never change anything:</p>
+        <span class="fr-code">${escAttr(s.code)}</span><button class="ics-btn" id="frCopy">Copy</button>
+        <p class="note-label" style="margin-top:18px;">What friends can see</p>
+        <label class="fr-check"><input type="checkbox" id="frTitles" ${s.shareTitles ? 'checked' : ''}><b>Also share goal titles</b>&nbsp;(off = planets &amp; glow only)</label>
+        ${planetRows}
+        <p class="fr-note">Unchecked planets and goals are private — they're never sent anywhere. "Done" goals are never shared.</p>
+        <div class="ed-actions"><button class="ics-btn" id="frStop">Stop sharing</button></div>`;
+    }
+
+    const list = (s.friends || []).map(friendCard).join('');
+    el.innerHTML = `
+      <p class="tl-month">Your sharing</p><div class="fr-section">${sharing}</div>
+      <p class="tl-month">Your friends</p>
+      <div class="fr-row">
+        <input class="fr-input" id="frAddCode" placeholder="Friend code (e.g. sun-abc23-def45)">
+        <input class="fr-input" id="frAddName" placeholder="Their name" style="max-width:130px;">
+        <button class="ics-btn" id="frAdd">Add</button>
+      </div>
+      ${list || '<p class="fr-note">No friends yet. Swap friend codes with someone who has their own solar system!</p>'}`;
+
+    const on = (sel, ev, fn) => { const n = el.querySelector(sel); if (n) n.addEventListener(ev, fn); };
+    on('#frStart', 'click', () => {
+      const ns = social.get();
+      ns.on = true;
+      if (!ns.code){ ns.code = social.randomCode(); ns.writeKey = social.randomKey(); }
+      social.save(ns);
+      buildFriends();
+    });
+    on('#frStop', 'click', () => {
+      if (!confirm('Stop sharing? Your summary is removed from the hub and your code stops working for friends.')) return;
+      const ns = social.get();
+      ns.on = false;
+      social.unpublish(ns);
+      social.save(ns);
+      buildFriends();
+    });
+    on('#frCopy', 'click', () => {
+      if (navigator.clipboard) navigator.clipboard.writeText(social.get().code);
+      el.querySelector('#frCopy').textContent = 'Copied ✓';
+    });
+    on('#frTitles', 'change', () => {
+      const ns = social.get();
+      ns.shareTitles = el.querySelector('#frTitles').checked;
+      social.save(ns);
+      buildFriends();
+    });
+    el.querySelectorAll('.fr-p').forEach(cb => cb.addEventListener('change', () => {
+      const ns = social.get();
+      ns.hidden = (ns.hidden || []).filter(l => l !== cb.dataset.label);
+      if (!cb.checked) ns.hidden.push(cb.dataset.label);
+      social.save(ns);
+      buildFriends();
+    }));
+    el.querySelectorAll('.fr-g').forEach(cb => cb.addEventListener('change', () => {
+      const ns = social.get();
+      ns.hiddenGoals = (ns.hiddenGoals || []).filter(k => k !== cb.dataset.key);
+      if (!cb.checked) ns.hiddenGoals.push(cb.dataset.key);
+      social.save(ns);
+    }));
+    on('#frAdd', 'click', () => {
+      const code = el.querySelector('#frAddCode').value.trim().toLowerCase();
+      const name = el.querySelector('#frAddName').value.trim();
+      if (!code) return;
+      const ns = social.get();
+      ns.friends = ns.friends || [];
+      if (!ns.friends.some(f => f.code === code)) ns.friends.push({ code, name });
+      social.save(ns);
+      buildFriends();
+      refreshFriends();
+    });
+    el.querySelectorAll('.fr-del').forEach(btn => btn.addEventListener('click', () => {
+      if (!confirm('Remove this friend from your list?')) return;
+      const ns = social.get();
+      ns.friends = (ns.friends || []).filter(f => f.code !== btn.dataset.code);
+      social.save(ns);
+      buildFriends();
+    }));
+  }
+
+  window.addEventListener('resize', build);
+  build();
+  // pull cloud state, then redraw with the synced data (including planet edits)
+  cloudSync.pull(() => {
+    applyConfig();
+    build();
+    if (progWrap.style.display === 'block') buildProgress();
+    if (friendsWrap.style.display === 'block') buildFriends();
+  }).then(() => socialPublish()); // keep the hub summary fresh (glow can change weekly)
+</script>
+</body>
+</html>
