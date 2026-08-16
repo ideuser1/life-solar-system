@@ -47,11 +47,12 @@ The Friends view lets solar systems wave at each other without giving up
 privacy:
 
 - Click **Start sharing** to get a random friend code (like `sun-abc23-def45`).
-  Give it to friends; enter theirs. You'll see each other's planets and which
-  ones are glowing.
+  Give it to friends; enter theirs. Click a friend's card to **visit their
+  solar system** — their planets orbit and glow just like yours, and clicking
+  one shows whatever goals they've shared. Read-only, always.
 - By default friends see **only** planet names, colors, and glow — no goals.
-  Tick "Also share goal titles" to share those too, and untick any planet or
-  goal to keep it fully private. "Done" goals are never shared.
+  Tick "Also share goal titles" to share those too, and untick any planet to
+  keep it fully private. "Done" goals are never shared.
 - Codes are read-only: a friend can look, never touch.
 - How it works: your dashboard publishes just the summary you chose to a small
   public "hub" site under your code. Nothing else ever leaves your dashboard,

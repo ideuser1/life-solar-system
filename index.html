@@ -372,9 +372,15 @@
   .fr-input:focus{ outline:none; border-color:var(--focus); }
   .fr-check{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-secondary); margin:7px 0; cursor:pointer; }
   .fr-check input{ accent-color:var(--good); margin:0; }
-  .fr-goal-check{ margin-left:28px; }
   .fr-err{ color:#ff8fa3; font-size:12px; margin:8px 0 0; }
   .fr-note{ font-size:12.5px; color:var(--ink-muted); line-height:1.55; margin:6px 0; }
+  /* visiting a friend's system */
+  .fr-card[data-code]{ cursor:pointer; }
+  .fr-card[data-code]:hover{ border-color:var(--focus); }
+  .fr-visit{ margin:12px 0 0; font-size:12px; color:var(--focus); }
+  #visitBar{ display:none; justify-content:center; align-items:center; margin-top:14px; }
+  body.visiting #visitBar{ display:flex; }
+  body.visiting .view-toggle, body.visiting #editPlanets, body.visiting .btn-sep, body.visiting #aiIdeas{ display:none; }
 
   /* narrow (portrait phone) screens: circular orbits use the space better.
      NOTE: this block must stay at the END of the stylesheet so it overrides
@@ -406,6 +412,7 @@
     <button id="viewFriends">Friends</button>
   </div>
   <button class="edit-btn" id="editPlanets">✎ Edit planets</button><span class="btn-sep">·</span><button class="edit-btn" id="aiIdeas">💡 Get Ideas</button>
+  <div id="visitBar"><button class="ics-btn" id="backBtn">← Back to my system</button></div>
 </header>
 
 <div class="system-wrap" id="system"></div>
@@ -446,8 +453,10 @@
   const subChecked = (a, g) => (g.subgoals || []).some((s, si) => store.get(a.label + '|' + g.title + '|sub' + si, s.done || false));
   const tickCount = (a, g) => g.perWeek ? store.get(a.label + '|' + g.title + '|' + weekKey(), 0) : 0;
   const goalOngoing = (a, g) => (g.status || 'someday') !== 'done' && (g.status === 'ongoing' || subChecked(a, g) || tickCount(a, g) > 0);
-  // a planet is "active" (green glow) when any of its goals is ongoing
-  const isActive = a => (a.goals || []).some(g => goalOngoing(a, g));
+  // a planet is "active" (green glow) when any of its goals is ongoing.
+  // Friend planets carry their glow with them (__active), since their owner's
+  // full goal list may be private.
+  const isActive = a => a.__active !== undefined ? a.__active : (a.goals || []).some(g => goalOngoing(a, g));
 
   // ---- click-to-mark progress: localStorage locally + synced to the cloud ----
   const store = {
@@ -690,21 +699,22 @@
       <div class="goal ${status}">
         ${status === 'done' ? '<span class="gcheck">✓</span>' : '<span class="gdot"></span>'}
         <div>
-          <p class="gtitle">${g.title}</p>
-          ${g.note ? `<p class="gnote">${g.note}</p>` : ''}
+          <p class="gtitle">${escAttr(g.title)}</p>
+          ${g.note ? `<p class="gnote">${escAttr(g.note)}</p>` : ''}
           ${extras}
           ${g.updated ? `<p class="gupdated">Updated ${g.updated}</p>` : ''}
         </div>
       </div>`;
     }).join('');
     panelBody.innerHTML = `
-      <h2>${p.label}</h2>
+      <h2>${escAttr(p.label)}</h2>
       <div class="status-row ${active ? 'active' : ''}"><span class="dot"></span>${active ? 'Active — goals in motion' : 'Quiet — nothing active right now'}</div>
       <p class="note-label">Goals</p>
-      ${rows || '<p class="note">No goals yet — click Edit goals below to add some.</p>'}
-      <div class="ed-actions"><button class="ics-btn" id="goalEditBtn">✎ Edit goals</button></div>
+      ${rows || (visiting ? '<p class="note">Nothing shared here — their goals are private.</p>' : '<p class="note">No goals yet — click Edit goals below to add some.</p>')}
+      ${visiting ? '' : '<div class="ed-actions"><button class="ics-btn" id="goalEditBtn">✎ Edit goals</button></div>'}
     `;
-    panelBody.querySelector('#goalEditBtn').addEventListener('click', () => openGoalEditor(p));
+    const geBtn = panelBody.querySelector('#goalEditBtn');
+    if (geBtn) geBtn.addEventListener('click', () => openGoalEditor(p));
 
     // weekly ticks: click a circle to fill up to it; click your latest one to undo it
     panelBody.querySelectorAll('.tick').forEach(el => el.addEventListener('click', () => {
@@ -731,13 +741,13 @@
   function openSunPanel(){
     const activeCount = cfg.areas.filter(isActive).length;
     panelBody.innerHTML = `
-      <h2>${cfg.sunLabel}</h2>
+      <h2>${escAttr(cfg.sunLabel)}</h2>
       <div class="status-row ${activeCount ? 'active' : ''}"><span class="dot"></span>${activeCount ? activeCount + ' area' + (activeCount > 1 ? 's' : '') + ' active' : 'All quiet right now'}</div>
       <p class="note-label">All areas</p>
       ${cfg.areas.map(p => {
         const goals = p.goals || [];
         const ongoing = goals.filter(g => g.status === 'ongoing').length;
-        return `<p class="note" style="margin:0 0 8px;"><span style="color:${p.color}">●</span> ${p.label} — ${ongoing ? ongoing + ' ongoing' : 'quiet'}${goals.length ? ' · ' + goals.length + ' goal' + (goals.length > 1 ? 's' : '') : ''}</p>`;
+        return `<p class="note" style="margin:0 0 8px;"><span style="color:${p.color}">●</span> ${escAttr(p.label)} — ${ongoing ? ongoing + ' ongoing' : 'quiet'}${goals.length ? ' · ' + goals.length + ' goal' + (goals.length > 1 ? 's' : '') : ''}</p>`;
       }).join('')}
     `;
     backdrop.classList.add('open');
@@ -1110,7 +1120,6 @@
         } else delete g.subgoals;
         if (orig.title && orig.title !== title){
           renameClickPrefix('lss:' + p.label + '|' + orig.title + '|', 'lss:' + p.label + '|' + title + '|');
-          socialRenameGoal(p.label, orig.title, title);
         }
         // milestone ✓s are baked into the config now — drop the loose click keys
         keysWithPrefix('lss:' + p.label + '|' + title + '|sub').forEach(k => localStorage.removeItem(k));
@@ -1237,8 +1246,10 @@
   // updating your summary needs the writeKey that stays in your own state.
   const HUB_URL = cfg.hubUrl || 'https://solar-friends-hub.pages.dev';
 
+  let visiting = null; // non-null while a friend's system is loaded into cfg
+
   const social = {
-    get(){ return store.get('__social', null) || { on:false, code:'', writeKey:'', shareTitles:false, hidden:[], hiddenGoals:[], friends:[] }; },
+    get(){ return store.get('__social', null) || { on:false, code:'', writeKey:'', shareTitles:false, hidden:[], friends:[] }; },
     save(s){ store.set('__social', s); },   // store.set also re-publishes
     randomCode(){
       const chars = 'abcdefghjkmnpqrstuvwxyz23456789'; // no look-alike 0/o/1/l/i
@@ -1260,7 +1271,7 @@
         const out = { label: a.label, color: a.color, active: isActive(a) };
         if (s.shareTitles){
           out.goals = (a.goals || [])
-            .filter(g => (g.status || 'someday') !== 'done' && !(s.hiddenGoals || []).includes(a.label + '|' + g.title))
+            .filter(g => (g.status || 'someday') !== 'done')
             .map(g => ({ title: g.title, on: goalOngoing(a, g) }));
         }
         return out;
@@ -1268,6 +1279,7 @@
       return { name: cfg.sunLabel, areas };
     },
     publish: debounce(() => {
+      if (visiting) return; // cfg holds a friend's system — never publish that as ours
       const s = social.get();
       if (!s.on || !s.code) return;
       fetch(HUB_URL + '/api/system/' + s.code, {
@@ -1283,16 +1295,10 @@
     },
   };
   function socialPublish(){ try{ social.publish(); }catch(e){} }
-  // keep privacy choices attached to their planet/goal through renames
+  // keep a planet's privacy choice attached through renames
   function socialRenamePlanet(oldL, newL){
     const s = social.get();
     s.hidden = (s.hidden || []).map(l => l === oldL ? newL : l);
-    s.hiddenGoals = (s.hiddenGoals || []).map(k => k.startsWith(oldL + '|') ? newL + k.slice(oldL.length) : k);
-    social.save(s);
-  }
-  function socialRenameGoal(planet, oldT, newT){
-    const s = social.get();
-    s.hiddenGoals = (s.hiddenGoals || []).map(k => k === planet + '|' + oldT ? planet + '|' + newT : k);
     social.save(s);
   }
 
@@ -1332,13 +1338,10 @@
       const planets = (sum.areas || []).slice(0, 30).map(a =>
         `<span class="fr-planet"><span class="fr-dot ${a.active ? 'glow' : ''}" style="background:${safeColor(a.color)}"></span>${escAttr(String(a.label || '').slice(0, 40))}</span>`
       ).join('');
-      const goals = (sum.areas || []).slice(0, 30).flatMap(a => (a.goals || []).slice(0, 20).map(g =>
-        `<li class="${g.on ? 'on' : ''}">${escAttr(String(g.title || '').slice(0, 120))} <span style="color:var(--ink-muted)">· ${escAttr(String(a.label || '').slice(0, 40))}</span></li>`
-      )).join('');
-      body = `<div class="fr-planets">${planets || '<span class="fr-note">Nothing shared yet.</span>'}</div>` +
-             (goals ? `<ul class="fr-goals">${goals}</ul>` : '');
+      body = `<div class="fr-planets">${planets || '<span class="fr-note">Nothing shared yet.</span>'}</div>
+        <p class="fr-visit">Visit their solar system →</p>`;
     }
-    return `<div class="fr-card">
+    return `<div class="fr-card" ${c && !c.error ? `data-code="${escAttr(f.code)}"` : ''}>
       <div class="fr-head"><p class="fr-name">${escAttr(f.name || f.code)}</p>
       <span class="fr-updated">${c && c.updated ? escAttr(timeAgo(c.updated)) + ' ' : ''}<button class="ed-del fr-del" data-code="${escAttr(f.code)}" title="Remove friend" aria-label="Remove friend">${TRASH_SVG}</button></span></div>
       ${body}
@@ -1357,24 +1360,16 @@
         which planets are glowing. Goal titles stay private unless you choose to share them too.</p>
         <div class="ed-actions"><button class="ics-btn" id="frStart">Start sharing</button></div>`;
     } else {
-      const planetRows = cfg.areas.map(a => {
-        const hiddenP = (s.hidden || []).includes(a.label);
-        let row = `<label class="fr-check"><input type="checkbox" class="fr-p" data-label="${escAttr(a.label)}" ${hiddenP ? '' : 'checked'}><span class="fr-dot" style="background:${safeColor(a.color)}"></span>${escAttr(a.label)}</label>`;
-        if (s.shareTitles && !hiddenP){
-          row += (a.goals || []).filter(g => (g.status || 'someday') !== 'done').map(g => {
-            const key = a.label + '|' + g.title;
-            return `<label class="fr-check fr-goal-check"><input type="checkbox" class="fr-g" data-key="${escAttr(key)}" ${(s.hiddenGoals || []).includes(key) ? '' : 'checked'}>${escAttr(g.title)}</label>`;
-          }).join('');
-        }
-        return row;
-      }).join('');
+      const planetRows = cfg.areas.map(a =>
+        `<label class="fr-check"><input type="checkbox" class="fr-p" data-label="${escAttr(a.label)}" ${(s.hidden || []).includes(a.label) ? '' : 'checked'}><span class="fr-dot" style="background:${safeColor(a.color)}"></span>${escAttr(a.label)}</label>`
+      ).join('');
       sharing = `
         <p class="fr-note">Give friends this code — it lets them <b>see</b> what you share below, never change anything:</p>
         <span class="fr-code">${escAttr(s.code)}</span><button class="ics-btn" id="frCopy">Copy</button>
         <p class="note-label" style="margin-top:18px;">What friends can see</p>
         <label class="fr-check"><input type="checkbox" id="frTitles" ${s.shareTitles ? 'checked' : ''}><b>Also share goal titles</b>&nbsp;(off = planets &amp; glow only)</label>
         ${planetRows}
-        <p class="fr-note">Unchecked planets and goals are private — they're never sent anywhere. "Done" goals are never shared.</p>
+        <p class="fr-note">Unchecked planets are private — nothing about them is sent anywhere. "Done" goals are never shared.</p>
         <div class="ed-actions"><button class="ics-btn" id="frStop">Stop sharing</button></div>`;
     }
 
@@ -1422,12 +1417,6 @@
       social.save(ns);
       buildFriends();
     }));
-    el.querySelectorAll('.fr-g').forEach(cb => cb.addEventListener('change', () => {
-      const ns = social.get();
-      ns.hiddenGoals = (ns.hiddenGoals || []).filter(k => k !== cb.dataset.key);
-      if (!cb.checked) ns.hiddenGoals.push(cb.dataset.key);
-      social.save(ns);
-    }));
     on('#frAdd', 'click', () => {
       const code = el.querySelector('#frAddCode').value.trim().toLowerCase();
       const name = el.querySelector('#frAddName').value.trim();
@@ -1446,7 +1435,56 @@
       social.save(ns);
       buildFriends();
     }));
+    el.querySelectorAll('.fr-card[data-code]').forEach(card => card.addEventListener('click', e => {
+      if (e.target.closest('.fr-del')) return; // the trash can is not a door
+      const code = card.dataset.code;
+      const f = (social.get().friends || []).find(x => x.code === code);
+      const c = friendsCache[code];
+      if (f && c && !c.error) enterVisit(f, c);
+    }));
   }
+
+  // ---- visiting: fly over to a friend's solar system, read-only ----
+  // Their summary becomes a temporary config in the normal orbit view; the
+  // editors, view toggle, and publishing are all disabled until Back.
+  function friendConfig(f, data){
+    const sum = data.summary || {};
+    const name = f.name || sum.name || 'Friend';
+    return {
+      title: name + "'s solar system",
+      subtitle: "You're visiting" + (data.updated ? ' · last updated ' + timeAgo(data.updated) : ''),
+      sunLabel: sum.name || name,
+      footer: 'Click a planet to look around — nothing here can be changed.',
+      areas: (sum.areas || []).slice(0, 30).map(a => ({
+        label: String(a.label || '').slice(0, 40),
+        color: safeColor(a.color),
+        __active: !!a.active,
+        goals: (a.goals || []).slice(0, 20).map(g => ({
+          title: String(g.title || '').slice(0, 120),
+          status: g.on ? 'ongoing' : 'someday',
+        })),
+      })),
+    };
+  }
+  function enterVisit(f, data){
+    closePanel();
+    visiting = { prevCfg: cfg };
+    cfg = friendConfig(f, data);
+    document.body.classList.add('visiting');
+    setHeaderText();
+    setView('system');
+    build();
+  }
+  function exitVisit(){
+    closePanel();
+    cfg = visiting.prevCfg;
+    visiting = null;
+    document.body.classList.remove('visiting');
+    setHeaderText();
+    build();
+    setView('friends');
+  }
+  document.getElementById('backBtn').addEventListener('click', exitVisit);
 
   window.addEventListener('resize', build);
   build();
