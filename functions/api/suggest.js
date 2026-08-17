@@ -100,7 +100,9 @@ export async function onRequestPost({ request, env }) {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-opus-5',
+      // default: top model. A site can set the AI_MODEL env var to use a
+      // cheaper one (the shared public site runs claude-sonnet-5).
+      model: env.AI_MODEL || 'claude-opus-5',
       max_tokens: 8000,
       system,
       output_config: { effort: 'medium', format: { type: 'json_schema', schema: SCHEMA } },
