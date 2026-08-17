@@ -273,7 +273,7 @@
   .ge-field input, .ge-field textarea{ margin-top:3px; }
   .ge-title{ width:100%; }
   .ge-due{ width:100%; color-scheme:dark; }
-  .ge-pw, .ge-pwm{ width:58px; }
+  .ge-pw{ width:58px; }
   .ge-subs{
     width:100%; min-height:52px; resize:vertical;
     background:var(--surface); color:var(--ink-primary);
@@ -1229,8 +1229,15 @@
       <input class="ed-name ge-title" value="${escAttr(g.title)}" placeholder="What's the goal?">
       <label class="ge-field">Due date (optional)<input type="date" class="ed-name ge-due" value="${g.due || ''}"></label>
       <label class="ge-field">Note (optional)<input class="ed-name ge-note" value="${escAttr(g.note)}"></label>
-      <label class="ge-field">Weekly circles: minimum <input type="number" class="ed-name ge-pw" min="0" max="14" value="${g.perWeek || ''}"> with bonus up to <input type="number" class="ed-name ge-pwm" min="0" max="14" value="${g.perWeekMax || ''}"></label>
-      <label class="ge-field">Milestones, one per line (optional)<textarea class="ge-subs">${escAttr((g.subgoals || []).map(s => s.title).join('\n'))}</textarea></label>
+      <label class="ge-field">Repeats
+        <select class="ge-status ge-repeat">
+          <option value="" ${!g.perWeek ? 'selected' : ''}>Doesn't repeat</option>
+          <option value="daily" ${g.perWeek === 7 ? 'selected' : ''}>Daily</option>
+          <option value="weekly" ${g.perWeek && g.perWeek !== 7 ? 'selected' : ''}>Weekly</option>
+        </select>
+      </label>
+      <label class="ge-field ge-times-row" ${g.perWeek && g.perWeek !== 7 ? '' : 'style="display:none"'}>How many times a week? <input type="number" class="ed-name ge-pw" min="1" max="14" value="${(g.perWeek && g.perWeek !== 7) ? g.perWeek : 3}"></label>
+      <label class="ge-field">Milestones — checkpoints on the way, one per line (optional)<textarea class="ge-subs" placeholder="e.g.&#10;$250 saved&#10;$500 saved">${escAttr((g.subgoals || []).map(s => s.title).join('\n'))}</textarea></label>
     </div>`;
   }
 
@@ -1252,11 +1259,18 @@
       const name = card.querySelector('.ge-title').value.trim() || 'this goal';
       if (confirm('Remove "' + name + '"?')) card.remove();
     });
+    // the "how many times a week?" box only matters for Weekly
+    const wireRepeat = sel => sel.addEventListener('change', () => {
+      sel.closest('.ge-card').querySelector('.ge-times-row').style.display =
+        sel.value === 'weekly' ? '' : 'none';
+    });
     list.querySelectorAll('.ge-del').forEach(wireDelete);
+    list.querySelectorAll('.ge-repeat').forEach(wireRepeat);
     panelBody.querySelector('#geAdd').addEventListener('click', () => {
       list.insertAdjacentHTML('beforeend', goalEditorCard({ status: 'someday' }, 'new'));
       const card = list.lastElementChild;
       wireDelete(card.querySelector('.ge-del'));
+      wireRepeat(card.querySelector('.ge-repeat'));
       card.querySelector('.ge-title').focus();
     });
     panelBody.querySelector('#geCancel').addEventListener('click', () => openPanel(p));
@@ -1270,12 +1284,18 @@
         const g = { ...orig, title, status: card.querySelector('.ge-status').value };
         const due = card.querySelector('.ge-due').value;
         const note = card.querySelector('.ge-note').value.trim();
-        const pw = parseInt(card.querySelector('.ge-pw').value, 10);
-        const pwm = parseInt(card.querySelector('.ge-pwm').value, 10);
+        const rep = card.querySelector('.ge-repeat').value;
+        let pw = 0;
+        if (rep === 'daily') pw = 7;
+        else if (rep === 'weekly') pw = Math.min(14, Math.max(1, parseInt(card.querySelector('.ge-pw').value, 10) || 3));
         if (due) g.due = due; else delete g.due;
         if (note) g.note = note; else delete g.note;
-        if (pw > 0) g.perWeek = pw; else { delete g.perWeek; delete g.perWeekMax; }
-        if (pw > 0 && pwm > pw) g.perWeekMax = pwm; else delete g.perWeekMax;
+        if (pw > 0){
+          g.perWeek = pw;
+          // bonus circles are no longer in the editor; keep an existing bonus
+          // only while it still makes sense (must exceed the new minimum)
+          if (!(orig.perWeekMax > pw)) delete g.perWeekMax;
+        } else { delete g.perWeek; delete g.perWeekMax; }
         const subTitles = card.querySelector('.ge-subs').value.split('\n').map(s => s.trim()).filter(Boolean);
         if (subTitles.length){
           // carry each milestone's ✓ (and its date) over by matching text
@@ -1870,7 +1890,7 @@
     { label: 'Purpose', color: '#b9a7f0', hint: 'meaning, giving back' },
   ];
   let setupEl = null;
-  const setupState = { step: 1, name: '', picked: [], custom: [], footer: '' };
+  const setupState = { step: 1, name: '', picked: [], custom: [], goals: {}, aboutMe: '', footer: '' };
 
   function setupHTML(){
     const s = setupState;
@@ -1890,6 +1910,18 @@
       </div>
       <div class="fr-row" style="margin:8px 0 0;"><input class="fr-input" id="suCustom" placeholder="Add your own planet…" maxlength="24"><button class="ics-btn" id="suAddCustom">Add</button></div>
       <p class="su-hint" id="suCount"></p>
+      <div class="su-actions"><button class="ics-btn" id="suBack">Back</button><button class="ics-btn" id="suNext">Next</button><button class="su-skip" id="suSkip">Skip setup</button></div>`;
+    const picked = [...s.picked, ...s.custom];
+    return `
+      <h2>Add starting goals</h2>
+      <p class="su-sub">Give any planet a first goal — or tell the AI a bit about yourself and let it
+      suggest one for each planet. Totally optional: you can add goals anytime with the ✎ buttons.</p>
+      <div class="fr-row" style="margin:0 0 4px;">
+        <input class="fr-input" id="suAbout" placeholder="About you, for better ideas — e.g. college student, loves hiking" value="${escAttr(s.aboutMe)}" maxlength="200">
+        <button class="ics-btn" id="suSuggest">✨ Suggest</button>
+      </div>
+      <p class="su-hint" id="suGoalMsg" style="margin:0 0 8px;"></p>
+      ${picked.map(l => `<label class="ge-field" style="margin:7px 0;">${escAttr(l)}<input class="fr-input su-goal" data-label="${escAttr(l)}" placeholder="(optional) a goal for ${escAttr(l)}" value="${escAttr(s.goals[l] || '')}" maxlength="120" style="width:100%;"></label>`).join('')}
       <div class="su-actions"><button class="ics-btn" id="suBack">Back</button><button class="ics-btn" id="suFinish">Create my solar system</button><button class="su-skip" id="suSkip">Skip setup</button></div>`;
   }
 
@@ -1900,8 +1932,13 @@
     on('#suSkip', closeSetup);
     on('#suBack', () => { s.step--; renderSetup(); });
     on('#suNext', () => {
-      s.name = setupEl.querySelector('#suName').value.trim();
-      s.step = 2;
+      if (s.step === 1){
+        s.name = setupEl.querySelector('#suName').value.trim();
+        s.step = 2;
+      } else if (s.step === 2){
+        if (!s.picked.length && !s.custom.length){ setupEl.querySelector('#suCount').textContent = 'Pick at least one planet to continue.'; return; }
+        s.step = 3;
+      }
       renderSetup();
     });
     on('#suAddCustom', () => {
@@ -1909,9 +1946,41 @@
       if (v && ![...s.picked, ...s.custom].some(x => x.toLowerCase() === v.toLowerCase())) s.custom.push(v);
       renderSetup();
     });
-    on('#suFinish', () => {
-      if (!s.picked.length && !s.custom.length){ setupEl.querySelector('#suCount').textContent = 'Pick at least one planet to continue.'; return; }
-      finishSetup();
+    on('#suFinish', finishSetup);
+    // step 3: remember typed goals/context across re-renders
+    setupEl.querySelectorAll('.su-goal').forEach(inp => inp.addEventListener('input', () => { s.goals[inp.dataset.label] = inp.value; }));
+    const aboutIn = setupEl.querySelector('#suAbout');
+    if (aboutIn) aboutIn.addEventListener('input', () => { s.aboutMe = aboutIn.value; });
+    on('#suSuggest', async () => {
+      const btn = setupEl.querySelector('#suSuggest');
+      const msg = setupEl.querySelector('#suGoalMsg');
+      const all = [...s.picked, ...s.custom];
+      btn.disabled = true; btn.textContent = 'Thinking…';
+      msg.textContent = 'Asking the AI for one idea per planet — can take ~20 seconds…';
+      try{
+        const res = await fetch('/api/suggest', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            question: 'Suggest exactly one short, beginner-friendly starter goal for EACH of these planets: ' + all.join(', ') + '. One goal per planet, no more.',
+            config: { title: 'Brand-new solar system', areas: all.map(l => ({ planet: l, goals: [] })) },
+            context: (s.aboutMe || '').slice(0, 200),
+          }),
+        });
+        const data = res.ok ? await res.json().catch(() => null) : null;
+        if (data && (data.suggestions || []).length){
+          data.suggestions.forEach(sg => {
+            const match = all.find(l => l.toLowerCase() === String(sg.planet || '').toLowerCase());
+            if (match && sg.title && !(s.goals[match] || '').trim()) s.goals[match] = String(sg.title).slice(0, 120);
+          });
+          renderSetup();
+          setupEl.querySelector('#suGoalMsg').textContent = '✨ Ideas filled in — edit or clear any you don’t like.';
+          return;
+        }
+        msg.textContent = res.status === 429
+          ? 'The AI hit its hourly limit — type your own for now.'
+          : 'The AI isn’t available right now — type your own goals instead.';
+      }catch(e){ msg.textContent = 'Couldn’t reach the AI — are you online? Type your own goals instead.'; }
+      btn.disabled = false; btn.textContent = '✨ Suggest';
     });
     setupEl.querySelectorAll('.su-chip[data-label]').forEach(ch => ch.addEventListener('click', () => {
       const l = ch.dataset.label;
@@ -1935,6 +2004,10 @@
     const s = setupState;
     const areas = SETUP_PLANETS.filter(p => s.picked.includes(p.label)).map(p => ({ label: p.label, color: p.color, goals: [] }));
     s.custom.forEach(c => areas.push({ label: c, color: PALETTE[areas.length % PALETTE.length], goals: [] }));
+    areas.forEach(a => {
+      const t = (s.goals[a.label] || '').trim();
+      if (t) a.goals.push({ title: t.slice(0, 120), status: 'ongoing' }); // starter goals glow
+    });
     cfg = {
       title: s.name ? s.name + "'s Life Solar System" : 'My Life Solar System',
       subtitle: "Each planet is a part of life. A green glow means something's actively happening.",
