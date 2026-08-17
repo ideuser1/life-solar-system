@@ -43,7 +43,14 @@
     background-repeat:repeat;
     background-size:600px 600px;
     opacity:0.8;
+    animation:twinkle 7s ease-in-out infinite;
   }
+  @keyframes twinkle{ 0%,100%{opacity:0.55;} 50%{opacity:0.95;} }
+  @keyframes sunbreathe{
+    0%,100%{ box-shadow:0 0 40px 10px rgba(255,171,64,0.35), 0 0 90px 30px rgba(255,140,60,0.15); }
+    50%{ box-shadow:0 0 55px 16px rgba(255,171,64,0.48), 0 0 110px 42px rgba(255,140,60,0.22); }
+  }
+  @media (prefers-reduced-motion: reduce){ .stars, .sun{ animation:none !important; } }
   header{
     position:relative; z-index:1;
     text-align:center;
@@ -89,6 +96,7 @@
     width:72px;height:72px;border-radius:50%;
     background:radial-gradient(circle at 35% 30%, #ffe9a8, #ffb648 55%, #ff8a3d 100%);
     box-shadow:0 0 40px 10px rgba(255,171,64,0.35), 0 0 90px 30px rgba(255,140,60,0.15);
+    animation:sunbreathe 6s ease-in-out infinite;
     z-index:3;
   }
   .sun:focus-visible{ outline:2px solid var(--focus); outline-offset:6px; }
@@ -374,6 +382,8 @@
   .fr-check input{ accent-color:var(--good); margin:0; }
   .fr-err{ color:#ff8fa3; font-size:12px; margin:8px 0 0; }
   .fr-note{ font-size:12.5px; color:var(--ink-muted); line-height:1.55; margin:6px 0; }
+  .pub-toggle{ font-size:13.5px; padding:10px 18px; border-radius:10px; font-weight:600; }
+  .pub-toggle.is-pub{ border-color:var(--good); color:var(--good); background:rgba(62,207,142,0.08); }
   /* visiting a friend's system */
   .fr-card[data-code]{ cursor:pointer; }
   .fr-card[data-code]:hover{ border-color:var(--focus); }
@@ -573,7 +583,7 @@
     document.title = cfg.title;
     document.getElementById('pageTitle').textContent = cfg.title;
     document.getElementById('pageSubtitle').textContent = cfg.subtitle || '';
-    document.getElementById('pageFooter').textContent = cfg.footer || 'Click a planet for details · Edit data.js to update';
+    document.getElementById('pageFooter').textContent = cfg.footer || 'Click a planet for details · make it yours with the ✎ buttons';
   }
   // planet edits made in the page are stored as '__config' in the synced state
   function applyConfig(){
@@ -843,7 +853,7 @@
         </div>
       </div>`;
     });
-    el.innerHTML = html || '<p class="tl-area">No dated goals yet — give a goal a due:"YYYY-MM-DD" in data.js.</p>';
+    el.innerHTML = html || '<p class="tl-area">No dated goals yet — open a planet and give a goal a due date with ✎ Edit goals.</p>';
     el.querySelectorAll('.tl-item').forEach(row =>
       row.addEventListener('click', () => openPanel(items[+row.dataset.i].a)));
   }
@@ -1436,25 +1446,26 @@
     const el = document.getElementById('friends');
     const s = social.get();
 
+    const toggle = `
+      <button class="ics-btn pub-toggle ${s.on ? 'is-pub' : ''}" id="frToggle">${s.on ? '🌍 Public — sharing is on' : '🔒 Private — sharing is off'}</button>
+      <p class="fr-note">${s.on
+        ? 'Friends who have your code can <b>see</b> what you choose below — never change anything. Click the button to go fully private.'
+        : 'Nothing about your solar system leaves this dashboard. Click the button to go public and get your friend code.'}</p>`;
     let sharing;
     if (!s.on){
-      sharing = `
-        <p class="fr-note">Sharing is <b>off</b> — nothing about your solar system leaves this dashboard.
-        Turn it on to get a <b>friend code</b>: friends who enter it see your planet names, colors, and
-        which planets are glowing. Goal titles stay private unless you choose to share them too.</p>
-        <div class="ed-actions"><button class="ics-btn" id="frStart">Start sharing</button></div>`;
+      sharing = toggle;
     } else {
       const planetRows = cfg.areas.map(a =>
         `<label class="fr-check"><input type="checkbox" class="fr-p" data-label="${escAttr(a.label)}" ${(s.hidden || []).includes(a.label) ? '' : 'checked'}><span class="fr-dot" style="background:${safeColor(a.color)}"></span>${escAttr(a.label)}</label>`
       ).join('');
       sharing = `
-        <p class="fr-note">Give friends this code — it lets them <b>see</b> what you share below, never change anything:</p>
+        ${toggle}
+        <p class="fr-note" style="margin-top:14px;">Your friend code:</p>
         <span class="fr-code">${escAttr(s.code)}</span><button class="ics-btn" id="frCopy">Copy</button>
         <p class="note-label" style="margin-top:18px;">What friends can see</p>
-        <label class="fr-check"><input type="checkbox" id="frTitles" ${s.shareTitles ? 'checked' : ''}><b>Also share goal titles</b>&nbsp;(off = planets &amp; glow only)</label>
+        <label class="fr-check"><input type="checkbox" id="frTitles" ${s.shareTitles ? 'checked' : ''}><b>Share goal titles</b>&nbsp;(uncheck to keep every goal private)</label>
         ${planetRows}
-        <p class="fr-note">Unchecked planets are private — nothing about them is sent anywhere. "Done" goals are never shared.</p>
-        <div class="ed-actions"><button class="ics-btn" id="frStop">Stop sharing</button></div>`;
+        <p class="fr-note">Unchecked planets are private — nothing about them is sent anywhere. "Done" goals are never shared.</p>`;
     }
 
     const list = (s.friends || []).map(friendCard).join('');
@@ -1468,18 +1479,16 @@
       ${list || '<p class="fr-note">No friends yet. Swap friend codes with someone who has their own solar system!</p>'}`;
 
     const on = (sel, ev, fn) => { const n = el.querySelector(sel); if (n) n.addEventListener(ev, fn); };
-    on('#frStart', 'click', () => {
+    on('#frToggle', 'click', () => {
       const ns = social.get();
-      ns.on = true;
-      if (!ns.code){ ns.code = social.randomCode(); ns.writeKey = social.randomKey(); }
-      social.save(ns);
-      buildFriends();
-    });
-    on('#frStop', 'click', () => {
-      if (!confirm('Stop sharing? Your summary is removed from the hub and your code stops working for friends.')) return;
-      const ns = social.get();
-      ns.on = false;
-      social.unpublish(ns);
+      if (ns.on){
+        if (!confirm('Go private? Your summary is removed from the hub and your code stops working for friends.')) return;
+        ns.on = false;
+        social.unpublish(ns);
+      } else {
+        ns.on = true;
+        if (!ns.code){ ns.code = social.randomCode(); ns.writeKey = social.randomKey(); ns.shareTitles = true; }
+      }
       social.save(ns);
       buildFriends();
     });
@@ -1605,6 +1614,7 @@
       </div>
       <div class="fr-row" style="margin:8px 0 0;"><input class="fr-input" id="suCustom" placeholder="Add your own planet…" maxlength="24"><button class="ics-btn" id="suAddCustom">Add</button></div>
       <p class="su-hint" id="suCount"></p>
+      <p class="su-hint">🌍 Your system starts <b>public</b>: you'll get a friend code that lets people you choose see your planets and goals. The 🔒 button in the Friends tab makes it private — or hides just some planets or goals.</p>
       <div class="su-actions"><button class="ics-btn" id="suBack">Back</button><button class="ics-btn" id="suFinish">Create my solar system</button><button class="su-skip" id="suSkip">Skip setup</button></div>`;
   }
 
@@ -1658,6 +1668,13 @@
     };
     if (s.footer) cfg.footer = s.footer;
     store.set('__config', cfg); // saves (and syncs, where hosting supports it)
+    // new systems start PUBLIC (announced in the wizard): create a friend code
+    // and publish. The 🌍/🔒 toggle in Friends flips this off in one click.
+    const soc = social.get();
+    if (!soc.code){ soc.code = social.randomCode(); soc.writeKey = social.randomKey(); }
+    soc.on = true;
+    soc.shareTitles = true;
+    social.save(soc);
     setHeaderText();
     build();
     closeSetup();
@@ -1675,7 +1692,7 @@
     { view: 'progress', target: '#viewProgress', title: 'The Progress tab',
       text: 'Your trophy shelf: finished goals, milestones reached, and an 8-week grid of your weekly habits (with streaks 🔥).' },
     { view: 'friends',  target: '#viewFriends',  title: 'The Friends tab',
-      text: "Press Start sharing to get a friend code, swap codes with people you like, and visit each other's solar systems. You control exactly what they see." },
+      text: "Your system starts 🌍 public — you already have a friend code here. Swap codes with people you like and visit each other's solar systems. The 🔒 toggle makes you fully private, and checkboxes hide specific planets or goals." },
     { view: 'system',   target: null,            title: 'All yours ✨',
       text: "That's the tour. Add a goal or two, tick your habits as the week goes, and come back anytime — everything saves itself." },
   ];
