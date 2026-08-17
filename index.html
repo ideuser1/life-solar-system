@@ -389,6 +389,15 @@
   .fr-note{ font-size:12.5px; color:var(--ink-muted); line-height:1.55; margin:6px 0; }
   .pub-toggle{ font-size:13.5px; padding:10px 18px; border-radius:10px; font-weight:600; }
   .pub-toggle.is-pub{ border-color:var(--good); color:var(--good); background:rgba(62,207,142,0.08); }
+  .fr-banner{
+    border:2px solid var(--ring); border-radius:12px;
+    padding:16px 18px; margin:4px 0 16px;
+    background:rgba(17,23,55,0.45);
+  }
+  .fr-banner.is-pub{ border-color:var(--good); background:rgba(62,207,142,0.07); }
+  .fr-banner-title{ margin:0 0 6px; font-size:16px; font-weight:700; }
+  .fr-banner.is-pub .fr-banner-title{ color:var(--good); }
+  .fr-banner-text{ margin:0 0 12px; font-size:13px; color:var(--ink-secondary); line-height:1.55; }
   /* visiting a friend's system */
   .fr-card[data-code]{ cursor:pointer; }
   .fr-card[data-code]:hover{ border-color:var(--focus); }
@@ -1485,20 +1494,23 @@
     const el = document.getElementById('friends');
     const s = social.get();
 
-    const toggle = `
-      <button class="ics-btn pub-toggle ${s.on ? 'is-pub' : ''}" id="frToggle">${s.on ? '🌍 Public — sharing is on' : '🔒 Private — sharing is off'}</button>
-      <p class="fr-note">${s.on
-        ? 'Friends who have your code can <b>see</b> what you choose below — never change anything. Click the button to go fully private.'
-        : 'Nothing about your solar system leaves this dashboard. Click the button to go public and get your friend code.'}</p>`;
+    const banner = `
+      <div class="fr-banner ${s.on ? 'is-pub' : ''}">
+        <p class="fr-banner-title">${s.on ? '🌍 Your solar system is PUBLIC' : '🔒 Your solar system is PRIVATE'}</p>
+        <p class="fr-banner-text">${s.on
+          ? 'People you give your friend code to can <b>see</b> your planet names, colors, and glow' + (s.shareTitles ? ' — and your goal titles' : ' (goal titles are NOT shared)') + '. They can never change anything. Uncheck planets below to hide them, or go private with one click.'
+          : 'Nothing about your solar system leaves this dashboard — no one can see it, not even with a friend code. Go public to get a friend code and share only what you choose.'}</p>
+        <button class="ics-btn pub-toggle ${s.on ? 'is-pub' : ''}" id="frToggle">${s.on ? 'Make it private 🔒' : 'Go public 🌍'}</button>
+      </div>`;
     let sharing;
     if (!s.on){
-      sharing = toggle;
+      sharing = banner;
     } else {
       const planetRows = cfg.areas.map(a =>
         `<label class="fr-check"><input type="checkbox" class="fr-p" data-label="${escAttr(a.label)}" ${(s.hidden || []).includes(a.label) ? '' : 'checked'}><span class="fr-dot" style="background:${safeColor(a.color)}"></span>${escAttr(a.label)}</label>`
       ).join('');
       sharing = `
-        ${toggle}
+        ${banner}
         <p class="fr-note" style="margin-top:14px;">Your friend code:</p>
         <span class="fr-code">${escAttr(s.code)}</span><button class="ics-btn" id="frCopy">Copy</button>
         <p class="note-label" style="margin-top:18px;">What friends can see</p>
