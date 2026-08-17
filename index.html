@@ -407,6 +407,20 @@
   .su-skip:hover{ color:var(--ink-primary); }
   .su-hint{ font-size:11.5px; color:var(--ink-muted); margin:8px 0 0; }
 
+  /* guided tour after setup */
+  .tour-card{
+    position:fixed; left:50%; transform:translateX(-50%); bottom:26px; z-index:9;
+    width:min(400px, 92vw);
+    background:var(--surface-2); border:1px solid var(--ring); border-radius:12px;
+    padding:16px 18px;
+    box-shadow:0 8px 30px rgba(0,0,0,0.5);
+  }
+  .tour-card h3{ margin:0 0 6px; font-size:15px; }
+  .tour-card p{ margin:0; font-size:12.5px; color:var(--ink-secondary); line-height:1.55; }
+  .tour-controls{ display:flex; gap:10px; margin-top:12px; align-items:center; }
+  .tour-step{ font-size:11px; color:var(--ink-muted); margin-left:auto; }
+  .tour-glow{ outline:2px solid var(--focus); outline-offset:3px; border-radius:8px; }
+
   /* narrow (portrait phone) screens: circular orbits use the space better.
      NOTE: this block must stay at the END of the stylesheet so it overrides
      the base rules above (same specificity — last one wins). */
@@ -1629,6 +1643,58 @@
     setHeaderText();
     build();
     closeSetup();
+    startTour(); // fresh system → show them around the tabs once
+  }
+
+  // ---- guided tour: a quick lap around the tabs, shown once after setup ----
+  const TOUR = [
+    { view: 'system',   target: null,            title: 'This is your solar system 🌞',
+      text: "You're the sun. Each planet is a part of your life orbiting you, and a green glow means something's actively happening there. Click any planet — or the sun — to look inside." },
+    { view: 'system',   target: '#editPlanets',  title: 'Make it yours',
+      text: '✎ Edit planets adds, renames, and recolors planets. Open a planet and ✎ Edit goals handles the rest: deadlines, weekly habit circles, milestone checklists.' },
+    { view: 'timeline', target: '#viewTimeline', title: 'The Timeline tab',
+      text: 'Every goal with a due date, soonest first, with overdue flags. The ⬇ button sends your deadlines to Google/Apple Calendar.' },
+    { view: 'progress', target: '#viewProgress', title: 'The Progress tab',
+      text: 'Your trophy shelf: finished goals, milestones reached, and an 8-week grid of your weekly habits (with streaks 🔥).' },
+    { view: 'friends',  target: '#viewFriends',  title: 'The Friends tab',
+      text: "Press Start sharing to get a friend code, swap codes with people you like, and visit each other's solar systems. You control exactly what they see." },
+    { view: 'system',   target: null,            title: 'All yours ✨',
+      text: "That's the tour. Add a goal or two, tick your habits as the week goes, and come back anytime — everything saves itself." },
+  ];
+  let tourEl = null, tourIx = 0, tourTarget = null;
+  function startTour(){
+    if (store.get('__tourDone', false)) return;
+    tourIx = 0;
+    tourEl = document.createElement('div');
+    tourEl.className = 'tour-card';
+    document.body.appendChild(tourEl);
+    renderTour();
+  }
+  function renderTour(){
+    const step = TOUR[tourIx];
+    if (tourTarget) tourTarget.classList.remove('tour-glow');
+    setView(step.view);
+    tourTarget = step.target ? document.querySelector(step.target) : null;
+    if (tourTarget) tourTarget.classList.add('tour-glow');
+    const last = tourIx === TOUR.length - 1;
+    tourEl.innerHTML = `<h3>${step.title}</h3><p>${step.text}</p>
+      <div class="tour-controls">
+        <button class="ics-btn" id="tourNext">${last ? 'Done' : 'Next'}</button>
+        ${last ? '' : '<button class="su-skip" id="tourSkip" style="margin-left:0;">Skip tour</button>'}
+        <span class="tour-step">${tourIx + 1} / ${TOUR.length}</span>
+      </div>`;
+    tourEl.querySelector('#tourNext').addEventListener('click', () => {
+      tourIx++;
+      if (tourIx >= TOUR.length) endTour(); else renderTour();
+    });
+    const sk = tourEl.querySelector('#tourSkip');
+    if (sk) sk.addEventListener('click', endTour);
+  }
+  function endTour(){
+    if (tourTarget){ tourTarget.classList.remove('tour-glow'); tourTarget = null; }
+    if (tourEl){ tourEl.remove(); tourEl = null; }
+    store.set('__tourDone', true); // once is enough
+    setView('system');
   }
 
   function openSetup(){
