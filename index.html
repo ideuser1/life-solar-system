@@ -94,7 +94,7 @@
     50%{ box-shadow:0 0 55px 16px rgba(255,171,64,0.48), 0 0 110px 42px rgba(255,140,60,0.22); }
   }
   @media (prefers-reduced-motion: reduce){
-    .stars, .stars::after, .sun, .moon-orbit{ animation:none !important; }
+    .stars, .stars::after, .sun{ animation:none !important; }
     .shooting-star{ display:none; }
   }
   header{
@@ -168,23 +168,6 @@
   .planet.active{
     box-shadow:0 0 12px 2px var(--halo, transparent), 0 0 14px 4px rgba(62,207,142,0.32), 0 0 34px 14px rgba(62,207,142,0.16), 0 0 60px 26px rgba(62,207,142,0.07);
   }
-  /* decorations: a ring for planets with milestones, a moon for habit planets */
-  .ring{
-    position:absolute; left:50%; top:50%;
-    border:2px solid; border-radius:50%;
-    transform:translate(-50%,-50%) rotateX(68deg) rotate(-18deg);
-    pointer-events:none;
-  }
-  .moon-orbit{
-    position:absolute; left:50%; top:50%; width:0; height:0;
-    animation:moonspin linear infinite;
-    pointer-events:none;
-  }
-  .moon{
-    position:absolute; width:7px; height:7px; border-radius:50%;
-    background:#dfe3f0; box-shadow:0 0 4px rgba(255,255,255,0.45);
-  }
-  @keyframes moonspin{ from{ transform:rotate(0); } to{ transform:rotate(360deg); } }
   .shooting-star{
     position:fixed; z-index:0; pointer-events:none;
     width:120px; height:2px; border-radius:2px;
@@ -819,7 +802,6 @@
       planetDiv.className = 'planet' + (active ? ' active' : '');
       planetDiv.style.width = psize + 'px';
       planetDiv.style.height = psize + 'px';
-      const h = labelHash(p.label); // still used to vary each moon's speed
       planetDiv.style.background = `radial-gradient(circle at 35% 30%, ${shade(p.color,25)}, ${p.color} 60%, ${shade(p.color,-20)} 100%)`;
       planetDiv.style.setProperty('--halo', hexRgba(p.color, 0.35));
 
@@ -834,26 +816,6 @@
       btn.appendChild(planetDiv);
       btn.appendChild(labelDiv);
       btn.appendChild(statusDiv);
-      // decorations that mean something: rings = has milestones, moon = has a habit
-      if ((p.goals || []).some(g => g.subgoals && g.subgoals.length)){
-        const ring = document.createElement('div');
-        ring.className = 'ring';
-        ring.style.width = (psize * 1.9) + 'px';
-        ring.style.height = (psize * 1.9) + 'px';
-        ring.style.borderColor = hexRgba(shade(p.color, 30), 0.45);
-        btn.appendChild(ring);
-      }
-      if ((p.goals || []).some(g => g.perWeek)){
-        const orbit = document.createElement('div');
-        orbit.className = 'moon-orbit';
-        orbit.style.animationDuration = (5 + (h % 4)) + 's';
-        const moon = document.createElement('div');
-        moon.className = 'moon';
-        moon.style.left = (psize / 2 + 8) + 'px';
-        moon.style.top = '-3px';
-        orbit.appendChild(moon);
-        btn.appendChild(orbit);
-      }
       btn.addEventListener('click', () => openPanel(p));
       areaEls[i] = { btn, planetDiv, statusDiv };
 
@@ -893,12 +855,6 @@
     let b = (num&0x0000FF)+Math.round(255*percent/100);
     r = Math.max(Math.min(255,r),0); g = Math.max(Math.min(255,g),0); b = Math.max(Math.min(255,b),0);
     return '#'+(0x1000000+r*0x10000+g*0x100+b).toString(16).slice(1);
-  }
-  // stable per-name hash → deterministic planet texture (same name, same look)
-  function labelHash(s){
-    let h = 2166136261;
-    for (let i = 0; i < s.length; i++){ h = ((h ^ s.charCodeAt(i)) * 16777619) >>> 0; }
-    return h;
   }
   function hexRgba(hex, a){
     const num = parseInt(hex.slice(1), 16);
