@@ -8,6 +8,12 @@ one HTML file and one data file, running right on your computer.
 
 ## Quick start
 
+**The zero-effort way:** just open **https://life-solar-system.pages.dev** —
+your solar system is already running. Everything you do there saves privately
+in your own browser (nothing is uploaded), and the Friends feature works.
+Heads-up: it lives in that one browser — clearing browser data erases it, and
+your phone won't see it. For a portable or synced system, use the steps below.
+
 1. Get the files: on this page, click the green **Code** button → **Download
    ZIP**, then unzip it anywhere. (Coders: `git clone` works too.)
 2. Open `index.html` in any browser. You'll see a starter solar system.

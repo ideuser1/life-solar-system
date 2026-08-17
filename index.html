@@ -1220,11 +1220,12 @@
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ question: q.value.trim(), config: compact }),
         });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok){
+        const data = await res.json().catch(() => null); // non-JSON = no AI endpoint on this copy
+        if (!res.ok || !data){
           out.innerHTML = '<p class="note">' + (
             res.status === 503 ? 'The AI isn’t set up yet — an Anthropic API key needs to be added to the site (see the project README or ask Claude).' :
             res.status === 429 ? 'Hourly AI limit reached — try again in a bit.' :
+            !data ? 'The AI helper isn’t available on this copy — it needs its own hosted setup (see the project README). Everything else works!' :
             'Something went wrong talking to the AI. Try again in a moment.') + '</p>';
           return;
         }
