@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b0f1e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Life Solar System</title>
 <style>
   :root{
@@ -1742,6 +1747,11 @@
     renderSetup();
   }
   function closeSetup(){ if (setupEl){ setupEl.remove(); setupEl = null; } }
+
+  // installable app: register the service worker (hosted copies only)
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
 
   window.addEventListener('resize', build);
   build();
