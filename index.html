@@ -819,19 +819,12 @@
       planetDiv.className = 'planet' + (active ? ' active' : '');
       planetDiv.style.width = psize + 'px';
       planetDiv.style.height = psize + 'px';
-      // each planet gets a stable texture derived from its name: half get
-      // gas-giant bands, half get rocky mottling
+      // each planet gets stable gas-giant banding derived from its name
+      // (angle and stripe width vary per planet)
       const h = labelHash(p.label);
-      let texture;
-      if (h % 2){
-        const ang = 15 + (h % 40);
-        const bw = 4 + ((h >> 3) % 4);
-        texture = `repeating-linear-gradient(${ang}deg, rgba(255,255,255,0.10) 0 ${bw}px, rgba(0,0,0,0.12) ${bw}px ${bw * 2}px)`;
-      } else {
-        const x1 = 20 + (h % 45), y1 = 25 + ((h >> 4) % 45);
-        const x2 = 55 + ((h >> 6) % 30), y2 = 55 + ((h >> 8) % 30);
-        texture = `radial-gradient(circle at ${x1}% ${y1}%, rgba(0,0,0,0.20) 0 12%, transparent 15%), radial-gradient(circle at ${x2}% ${y2}%, rgba(0,0,0,0.15) 0 9%, transparent 12%), radial-gradient(circle at ${x2}% ${y1}%, rgba(255,255,255,0.12) 0 7%, transparent 10%)`;
-      }
+      const ang = 15 + (h % 40);
+      const bw = 4 + ((h >> 3) % 4);
+      const texture = `repeating-linear-gradient(${ang}deg, rgba(255,255,255,0.10) 0 ${bw}px, rgba(0,0,0,0.12) ${bw}px ${bw * 2}px)`;
       planetDiv.style.background = `${texture}, radial-gradient(circle at 35% 30%, ${shade(p.color,25)}, ${p.color} 60%, ${shade(p.color,-20)} 100%)`;
       planetDiv.style.setProperty('--halo', hexRgba(p.color, 0.35));
 
