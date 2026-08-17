@@ -38,7 +38,10 @@
     --ring:#372258; --focus:#ff8fd8; --neb1:#331447; --neb2:#12123f;
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;height:100%;}
+  /* min-height (not height): the body box must grow with long pages so its
+     background gradient covers everything — height:100% capped it at one
+     screen, cutting the sky off on scrolling pages */
+  html,body{margin:0;padding:0;min-height:100%;}
   html{background:var(--surface);}
   body{
     background:
