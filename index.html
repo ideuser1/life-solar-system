@@ -63,18 +63,40 @@
       radial-gradient(1px 1px at 90% 60%, #ffffff44 50%, transparent 51%),
       radial-gradient(1.5px 1.5px at 45% 40%, #ffffff33 50%, transparent 51%),
       radial-gradient(1px 1px at 15% 55%, #ffffff33 50%, transparent 51%),
-      radial-gradient(1px 1px at 70% 30%, #ffffff33 50%, transparent 51%);
+      radial-gradient(1px 1px at 70% 30%, #ffffff33 50%, transparent 51%),
+      radial-gradient(1px 1px at 38% 8%, #ffffff2e 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 85% 45%, #ffffff3a 50%, transparent 51%),
+      radial-gradient(1px 1px at 52% 92%, #ffffff30 50%, transparent 51%),
+      radial-gradient(1px 1px at 8% 35%, #ffffff2a 50%, transparent 51%);
     background-repeat:repeat;
     background-size:600px 600px;
     opacity:0.8;
-    animation:twinkle 7s ease-in-out infinite;
+    animation:twinkle 7s ease-in-out infinite, star-drift 300s linear infinite;
   }
+  /* second, deeper star layer drifting at a different speed for parallax */
+  .stars::after{
+    content:''; position:absolute; inset:0;
+    background-image:
+      radial-gradient(1px 1px at 25% 35%, #ffffff40 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 75% 80%, #ffffff30 50%, transparent 51%),
+      radial-gradient(1px 1px at 55% 15%, #ffffff35 50%, transparent 51%),
+      radial-gradient(1px 1px at 5% 75%, #ffffff2e 50%, transparent 51%),
+      radial-gradient(2px 2px at 40% 60%, #ffffff22 50%, transparent 51%);
+    background-repeat:repeat;
+    background-size:900px 900px;
+    animation:star-drift2 480s linear infinite;
+  }
+  @keyframes star-drift{ from{ background-position:0 0; } to{ background-position:600px 300px; } }
+  @keyframes star-drift2{ from{ background-position:0 0; } to{ background-position:-900px 450px; } }
   @keyframes twinkle{ 0%,100%{opacity:0.55;} 50%{opacity:0.95;} }
   @keyframes sunbreathe{
     0%,100%{ box-shadow:0 0 40px 10px rgba(255,171,64,0.35), 0 0 90px 30px rgba(255,140,60,0.15); }
     50%{ box-shadow:0 0 55px 16px rgba(255,171,64,0.48), 0 0 110px 42px rgba(255,140,60,0.22); }
   }
-  @media (prefers-reduced-motion: reduce){ .stars, .sun{ animation:none !important; } }
+  @media (prefers-reduced-motion: reduce){
+    .stars, .stars::after, .sun, .moon-orbit{ animation:none !important; }
+    .shooting-star{ display:none; }
+  }
   header{
     position:relative; z-index:1;
     text-align:center;
@@ -140,10 +162,38 @@
     border-radius:50%;
     position:relative;
     transition:transform 160ms ease;
+    box-shadow:0 0 12px 2px var(--halo, transparent); /* soft halo in the planet's own color */
   }
   .planet-btn:hover .planet{ transform:scale(1.08); }
   .planet.active{
-    box-shadow:0 0 14px 4px rgba(62,207,142,0.32), 0 0 34px 14px rgba(62,207,142,0.16), 0 0 60px 26px rgba(62,207,142,0.07);
+    box-shadow:0 0 12px 2px var(--halo, transparent), 0 0 14px 4px rgba(62,207,142,0.32), 0 0 34px 14px rgba(62,207,142,0.16), 0 0 60px 26px rgba(62,207,142,0.07);
+  }
+  /* decorations: a ring for planets with milestones, a moon for habit planets */
+  .ring{
+    position:absolute; left:50%; top:50%;
+    border:2px solid; border-radius:50%;
+    transform:translate(-50%,-50%) rotateX(68deg) rotate(-18deg);
+    pointer-events:none;
+  }
+  .moon-orbit{
+    position:absolute; left:50%; top:50%; width:0; height:0;
+    animation:moonspin linear infinite;
+    pointer-events:none;
+  }
+  .moon{
+    position:absolute; width:7px; height:7px; border-radius:50%;
+    background:#dfe3f0; box-shadow:0 0 4px rgba(255,255,255,0.45);
+  }
+  @keyframes moonspin{ from{ transform:rotate(0); } to{ transform:rotate(360deg); } }
+  .shooting-star{
+    position:fixed; z-index:0; pointer-events:none;
+    width:120px; height:2px; border-radius:2px;
+    background:linear-gradient(90deg, rgba(255,255,255,0.85), transparent);
+    animation:shoot 1.2s ease-out forwards;
+  }
+  @keyframes shoot{
+    from{ transform:translate(0,0) rotate(16deg); opacity:1; }
+    to{ transform:translate(-440px,130px) rotate(16deg); opacity:0; }
   }
   .planet-label{
     position:absolute; top:100%; left:50%;
@@ -747,7 +797,8 @@
       const r = (n === 1) ? rMax : rMin + (rMax - rMin) * (i / (n - 1));
       const angle = 270 + (360 / n) * ((i * stride) % n);   // even spacing, scattered order
       const active = isActive(p);
-      const psize = p.size || 30;
+      // planets grow gently with their goal count (explicit size still wins)
+      const psize = p.size || (26 + Math.min((p.goals || []).length, 5) * 2);
       const fi = (n === 1) ? fOuter : fInner + (fOuter - fInner) * (i / (n - 1));
       const orbitEl = document.createElement('div');
       orbitEl.className = 'orbit';
@@ -768,7 +819,21 @@
       planetDiv.className = 'planet' + (active ? ' active' : '');
       planetDiv.style.width = psize + 'px';
       planetDiv.style.height = psize + 'px';
-      planetDiv.style.background = `radial-gradient(circle at 35% 30%, ${shade(p.color,25)}, ${p.color} 60%, ${shade(p.color,-20)} 100%)`;
+      // each planet gets a stable texture derived from its name: half get
+      // gas-giant bands, half get rocky mottling
+      const h = labelHash(p.label);
+      let texture;
+      if (h % 2){
+        const ang = 15 + (h % 40);
+        const bw = 4 + ((h >> 3) % 4);
+        texture = `repeating-linear-gradient(${ang}deg, rgba(255,255,255,0.10) 0 ${bw}px, rgba(0,0,0,0.12) ${bw}px ${bw * 2}px)`;
+      } else {
+        const x1 = 20 + (h % 45), y1 = 25 + ((h >> 4) % 45);
+        const x2 = 55 + ((h >> 6) % 30), y2 = 55 + ((h >> 8) % 30);
+        texture = `radial-gradient(circle at ${x1}% ${y1}%, rgba(0,0,0,0.20) 0 12%, transparent 15%), radial-gradient(circle at ${x2}% ${y2}%, rgba(0,0,0,0.15) 0 9%, transparent 12%), radial-gradient(circle at ${x2}% ${y1}%, rgba(255,255,255,0.12) 0 7%, transparent 10%)`;
+      }
+      planetDiv.style.background = `${texture}, radial-gradient(circle at 35% 30%, ${shade(p.color,25)}, ${p.color} 60%, ${shade(p.color,-20)} 100%)`;
+      planetDiv.style.setProperty('--halo', hexRgba(p.color, 0.35));
 
       const labelDiv = document.createElement('div');
       labelDiv.className = 'planet-label';
@@ -781,6 +846,26 @@
       btn.appendChild(planetDiv);
       btn.appendChild(labelDiv);
       btn.appendChild(statusDiv);
+      // decorations that mean something: rings = has milestones, moon = has a habit
+      if ((p.goals || []).some(g => g.subgoals && g.subgoals.length)){
+        const ring = document.createElement('div');
+        ring.className = 'ring';
+        ring.style.width = (psize * 1.9) + 'px';
+        ring.style.height = (psize * 1.9) + 'px';
+        ring.style.borderColor = hexRgba(shade(p.color, 30), 0.45);
+        btn.appendChild(ring);
+      }
+      if ((p.goals || []).some(g => g.perWeek)){
+        const orbit = document.createElement('div');
+        orbit.className = 'moon-orbit';
+        orbit.style.animationDuration = (5 + (h % 4)) + 's';
+        const moon = document.createElement('div');
+        moon.className = 'moon';
+        moon.style.left = (psize / 2 + 8) + 'px';
+        moon.style.top = '-3px';
+        orbit.appendChild(moon);
+        btn.appendChild(orbit);
+      }
       btn.addEventListener('click', () => openPanel(p));
       areaEls[i] = { btn, planetDiv, statusDiv };
 
@@ -820,6 +905,16 @@
     let b = (num&0x0000FF)+Math.round(255*percent/100);
     r = Math.max(Math.min(255,r),0); g = Math.max(Math.min(255,g),0); b = Math.max(Math.min(255,b),0);
     return '#'+(0x1000000+r*0x10000+g*0x100+b).toString(16).slice(1);
+  }
+  // stable per-name hash → deterministic planet texture (same name, same look)
+  function labelHash(s){
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++){ h = ((h ^ s.charCodeAt(i)) * 16777619) >>> 0; }
+    return h;
+  }
+  function hexRgba(hex, a){
+    const num = parseInt(hex.slice(1), 16);
+    return `rgba(${num >> 16}, ${(num >> 8) & 255}, ${num & 255}, ${a})`;
   }
 
   const backdrop = document.getElementById('backdrop');
@@ -2093,6 +2188,17 @@
     renderSetup();
   }
   function closeSetup(){ if (setupEl){ setupEl.remove(); setupEl = null; } }
+
+  // an occasional shooting star (never for reduced-motion folks)
+  function shootingStar(){
+    const star = document.createElement('div');
+    star.className = 'shooting-star';
+    star.style.top = (5 + Math.random() * 40) + '%';
+    star.style.left = (35 + Math.random() * 60) + '%';
+    document.body.appendChild(star);
+    setTimeout(() => star.remove(), 1500);
+  }
+  if (!reducedMotion) setInterval(() => { if (Math.random() < 0.55) shootingStar(); }, 16000);
 
   // installable app: register the service worker (hosted copies only)
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
