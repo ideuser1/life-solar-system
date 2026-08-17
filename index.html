@@ -14,8 +14,8 @@
     --surface:#0b0f1e;
     --surface-2:#111737;
     --ink-primary:#eef1fb;
-    --ink-secondary:#a9b1d6;
-    --ink-muted:#6b7394;
+    --ink-secondary:#bcc3e2;
+    --ink-muted:#8b93ba;
     --ring:#232b52;
     --good:#3ecf8e;
     --good-glow:rgba(62,207,142,0.55);
@@ -23,17 +23,18 @@
     --neb1:#141b3d; /* nebula gradient tints, per theme */
     --neb2:#151032;
   }
-  /* themes: each overrides the palette tokens above */
-  body[data-theme="sunset"]{
-    --surface:#180d1f; --surface-2:#261335; --ink-secondary:#c4a8c4; --ink-muted:#8a6f92;
+  /* themes: each overrides the palette tokens above. The attribute lives on
+     <html> so the outermost background is themed too (no cutoff band). */
+  html[data-theme="sunset"]{
+    --surface:#180d1f; --surface-2:#261335; --ink-secondary:#dcc8dc; --ink-muted:#b298ba;
     --ring:#3d2350; --focus:#ff9d76; --neb1:#3a1535; --neb2:#2a0f2f;
   }
-  body[data-theme="aurora"]{
-    --surface:#061418; --surface-2:#0c2028; --ink-secondary:#9cc4c4; --ink-muted:#5f8489;
+  html[data-theme="aurora"]{
+    --surface:#061418; --surface-2:#0c2028; --ink-secondary:#bcdcdc; --ink-muted:#8fb2b8;
     --ring:#1c3b44; --focus:#5fd0c7; --neb1:#0a2e2a; --neb2:#10333f;
   }
-  body[data-theme="nebula"]{
-    --surface:#140a1c; --surface-2:#1f1030; --ink-secondary:#bfa8d4; --ink-muted:#82699c;
+  html[data-theme="nebula"]{
+    --surface:#140a1c; --surface-2:#1f1030; --ink-secondary:#d8c6e8; --ink-muted:#ad93c8;
     --ring:#372258; --focus:#ff8fd8; --neb1:#331447; --neb2:#12123f;
   }
   *{box-sizing:border-box;}
@@ -1445,8 +1446,9 @@
   ];
   function applyTheme(){
     const t = store.get('__theme', 'midnight');
-    if (t === 'midnight') document.body.removeAttribute('data-theme');
-    else document.body.setAttribute('data-theme', t);
+    // on <html>, not <body>, so the page's outermost background is themed too
+    if (t === 'midnight') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', t);
   }
   function openThemePanel(){
     const cur = store.get('__theme', 'midnight');
