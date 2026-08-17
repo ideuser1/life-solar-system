@@ -1345,6 +1345,13 @@
       if (res.status === 404){ friendsCache[code] = { error: 'Nothing shared under this code — check it, or they may have stopped sharing.' }; return; }
       if (!res.ok){ friendsCache[code] = { error: 'The hub had a problem — try again later.' }; return; }
       friendsCache[code] = await res.json();
+      // adopt the name from their sun automatically ("sun-…" codes are for machines)
+      const nm = String(((friendsCache[code] || {}).summary || {}).name || '').slice(0, 30);
+      if (nm){
+        const ns = social.get();
+        const fr = (ns.friends || []).find(x => x.code === code);
+        if (fr && fr.name !== nm){ fr.name = nm; social.save(ns); }
+      }
     }catch(e){ friendsCache[code] = { error: 'Couldn’t reach the hub — are you online?' }; }
   }
   function refreshFriends(){
@@ -1404,8 +1411,7 @@
       <p class="tl-month">Your sharing</p><div class="fr-section">${sharing}</div>
       <p class="tl-month">Your friends</p>
       <div class="fr-row">
-        <input class="fr-input" id="frAddCode" placeholder="Friend code (e.g. sun-abc23-def45)">
-        <input class="fr-input" id="frAddName" placeholder="Their name" style="max-width:130px;">
+        <input class="fr-input" id="frAddCode" placeholder="Paste a friend code (e.g. sun-abc23-def45)">
         <button class="ics-btn" id="frAdd">Add</button>
       </div>
       ${list || '<p class="fr-note">No friends yet. Swap friend codes with someone who has their own solar system!</p>'}`;
@@ -1445,11 +1451,10 @@
     }));
     on('#frAdd', 'click', () => {
       const code = el.querySelector('#frAddCode').value.trim().toLowerCase();
-      const name = el.querySelector('#frAddName').value.trim();
       if (!code) return;
       const ns = social.get();
       ns.friends = ns.friends || [];
-      if (!ns.friends.some(f => f.code === code)) ns.friends.push({ code, name });
+      if (!ns.friends.some(f => f.code === code)) ns.friends.push({ code }); // name arrives with their summary
       social.save(ns);
       buildFriends();
       refreshFriends();
