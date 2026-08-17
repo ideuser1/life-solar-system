@@ -382,6 +382,31 @@
   body.visiting #visitBar{ display:flex; }
   body.visiting .view-toggle, body.visiting #editPlanets, body.visiting .btn-sep, body.visiting #aiIdeas{ display:none; }
 
+  /* first-run setup wizard */
+  .setup-backdrop{
+    position:fixed; inset:0; background:rgba(4,6,16,0.7); z-index:8;
+    display:flex; align-items:center; justify-content:center; padding:16px;
+  }
+  .setup-card{
+    width:min(480px, 94vw); max-height:88vh; overflow-y:auto;
+    background:var(--surface-2); border:1px solid var(--ring); border-radius:14px;
+    padding:26px 24px;
+  }
+  .setup-card h2{ margin:0 0 6px; font-size:19px; }
+  .su-sub{ color:var(--ink-secondary); font-size:13px; line-height:1.55; margin:0 0 16px; }
+  .su-chips{ display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 4px; }
+  .su-chip{
+    display:flex; align-items:center; gap:7px;
+    background:var(--surface); color:var(--ink-secondary);
+    border:1px solid var(--ring); border-radius:16px;
+    padding:7px 13px; font-size:13px; cursor:pointer;
+  }
+  .su-chip.sel{ border-color:var(--good); color:var(--ink-primary); background:rgba(62,207,142,0.10); }
+  .su-actions{ display:flex; gap:8px; margin-top:18px; align-items:center; }
+  .su-skip{ background:none; border:none; color:var(--ink-muted); font-size:12px; cursor:pointer; margin-left:auto; }
+  .su-skip:hover{ color:var(--ink-primary); }
+  .su-hint{ font-size:11.5px; color:var(--ink-muted); margin:8px 0 0; }
+
   /* narrow (portrait phone) screens: circular orbits use the space better.
      NOTE: this block must stay at the END of the stylesheet so it overrides
      the base rules above (same specificity — last one wins). */
@@ -1487,12 +1512,140 @@
   }
   document.getElementById('backBtn').addEventListener('click', exitVisit);
 
+  // ---- first-run setup wizard ----
+  // Shown when data.js says `setup: true` and nothing has been saved yet
+  // (fresh visitor). Builds a personal config with NO example goals and
+  // stores it as __config, exactly as if they'd used the in-page editors.
+  const SETUP_PLANETS = [
+    { label: 'Work',    color: '#7aa2ff', hint: 'career, business, your main thing' },
+    { label: 'School',  color: '#b48cff', hint: 'classes, degrees, learning' },
+    { label: 'Money',   color: '#ff8fa3', hint: 'earning, saving, investing' },
+    { label: 'Body',    color: '#5fd0c7', hint: 'fitness, sleep, food, health' },
+    { label: 'Mind',    color: '#8fd3ff', hint: 'mental health, mindfulness' },
+    { label: 'People',  color: '#ff9d76', hint: 'family, friends, romance' },
+    { label: 'Growth',  color: '#5cb85c', hint: 'skills, reading, curiosity' },
+    { label: 'Play',    color: '#ff8fd8', hint: 'fun, adventure, hobbies' },
+    { label: 'Home',    color: '#d9b26a', hint: 'your space, life admin' },
+    { label: 'Purpose', color: '#b9a7f0', hint: 'meaning, giving back' },
+  ];
+  let setupEl = null;
+  const setupState = { step: 1, name: '', picked: [], custom: [], goalPlanet: '', goalTitle: '', footer: '' };
+
+  function setupHTML(){
+    const s = setupState;
+    if (s.step === 1) return `
+      <h2>Welcome to your solar system 🌞</h2>
+      <p class="su-sub">You're about to be the sun, with the parts of your life orbiting you
+      as planets. First things first — what should we call the sun?</p>
+      <input class="fr-input" id="suName" placeholder="Your name" value="${escAttr(s.name)}" maxlength="30" style="width:100%;">
+      <div class="su-actions"><button class="ics-btn" id="suNext">Next</button><button class="su-skip" id="suSkip">Skip setup</button></div>`;
+    if (s.step === 2) return `
+      <h2>Pick your planets</h2>
+      <p class="su-sub">Which parts of life do you want orbiting you? Tap to choose — most
+      people keep 4–7. You can rename, recolor, add, or remove planets anytime later.</p>
+      <div class="su-chips">
+        ${SETUP_PLANETS.map(p => `<button class="su-chip ${s.picked.includes(p.label) ? 'sel' : ''}" data-label="${p.label}" title="${p.hint}"><span class="fr-dot" style="background:${p.color}"></span>${p.label}</button>`).join('')}
+        ${s.custom.map(c => `<button class="su-chip sel" data-custom="${escAttr(c)}" title="Click to remove"><span class="fr-dot" style="background:${PALETTE[(SETUP_PLANETS.length + s.custom.indexOf(c)) % PALETTE.length]}"></span>${escAttr(c)} ✕</button>`).join('')}
+      </div>
+      <div class="fr-row" style="margin:8px 0 0;"><input class="fr-input" id="suCustom" placeholder="Add your own planet…" maxlength="24"><button class="ics-btn" id="suAddCustom">Add</button></div>
+      <p class="su-hint" id="suCount"></p>
+      <div class="su-actions"><button class="ics-btn" id="suBack">Back</button><button class="ics-btn" id="suNext">Next</button><button class="su-skip" id="suSkip">Skip setup</button></div>`;
+    const all = [...s.picked, ...s.custom];
+    return `
+      <h2>One goal to light it up</h2>
+      <p class="su-sub">A planet <b>glows green</b> when something's actively happening on it.
+      Want to name one thing you're working on right now? Totally fine to skip —
+      you can add goals anytime with the ✎ buttons.</p>
+      <select class="ge-status" id="suGoalPlanet" style="width:100%; margin-bottom:8px;">${all.map(l => `<option ${l === s.goalPlanet ? 'selected' : ''}>${escAttr(l)}</option>`).join('')}</select>
+      <input class="fr-input" id="suGoalTitle" placeholder="e.g. Exercise 3x a week · Save $500 · Call Grandma more" value="${escAttr(s.goalTitle)}" maxlength="120" style="width:100%;">
+      <div class="su-actions"><button class="ics-btn" id="suBack">Back</button><button class="ics-btn" id="suFinish">Create my solar system</button></div>`;
+  }
+
+  function renderSetup(){
+    setupEl.querySelector('.setup-card').innerHTML = setupHTML();
+    const s = setupState;
+    const on = (sel, fn) => { const n = setupEl.querySelector(sel); if (n) n.addEventListener('click', fn); };
+    on('#suSkip', closeSetup);
+    on('#suBack', () => { s.step--; renderSetup(); });
+    on('#suNext', () => {
+      if (s.step === 1){ s.name = setupEl.querySelector('#suName').value.trim(); s.step = 2; }
+      else if (s.step === 2){
+        if (!s.picked.length && !s.custom.length){ setupEl.querySelector('#suCount').textContent = 'Pick at least one planet to continue.'; return; }
+        const all = [...s.picked, ...s.custom];
+        if (!all.includes(s.goalPlanet)) s.goalPlanet = all[0];
+        s.step = 3;
+      }
+      renderSetup();
+    });
+    on('#suAddCustom', () => {
+      const v = setupEl.querySelector('#suCustom').value.trim();
+      if (v && ![...s.picked, ...s.custom].some(x => x.toLowerCase() === v.toLowerCase())) s.custom.push(v);
+      renderSetup();
+    });
+    on('#suFinish', () => {
+      s.goalPlanet = setupEl.querySelector('#suGoalPlanet').value;
+      s.goalTitle = setupEl.querySelector('#suGoalTitle').value.trim();
+      finishSetup();
+    });
+    setupEl.querySelectorAll('.su-chip[data-label]').forEach(ch => ch.addEventListener('click', () => {
+      const l = ch.dataset.label;
+      s.picked = s.picked.includes(l) ? s.picked.filter(x => x !== l) : [...s.picked, l];
+      renderSetup();
+    }));
+    setupEl.querySelectorAll('.su-chip[data-custom]').forEach(ch => ch.addEventListener('click', () => {
+      s.custom = s.custom.filter(x => x !== ch.dataset.custom);
+      renderSetup();
+    }));
+    const nameIn = setupEl.querySelector('#suName');
+    if (nameIn){ nameIn.focus(); nameIn.addEventListener('keydown', e => { if (e.key === 'Enter') setupEl.querySelector('#suNext').click(); }); }
+    const custIn = setupEl.querySelector('#suCustom');
+    if (custIn) custIn.addEventListener('keydown', e => { if (e.key === 'Enter') setupEl.querySelector('#suAddCustom').click(); });
+    const cnt = s.picked.length + s.custom.length;
+    const cntEl = setupEl.querySelector('#suCount');
+    if (cntEl) cntEl.textContent = cnt ? cnt + ' planet' + (cnt > 1 ? 's' : '') + ' chosen' : 'Nothing picked yet — most people keep 4–7.';
+  }
+
+  function finishSetup(){
+    const s = setupState;
+    const areas = SETUP_PLANETS.filter(p => s.picked.includes(p.label)).map(p => ({ label: p.label, color: p.color, goals: [] }));
+    s.custom.forEach(c => areas.push({ label: c, color: PALETTE[areas.length % PALETTE.length], goals: [] }));
+    if (s.goalTitle){
+      const area = areas.find(a => a.label === s.goalPlanet) || areas[0];
+      area.goals.push({ title: s.goalTitle, status: 'ongoing' });
+    }
+    cfg = {
+      title: s.name ? s.name + "'s Life Solar System" : 'My Life Solar System',
+      subtitle: "Each planet is a part of life. A green glow means something's actively happening.",
+      sunLabel: s.name || 'Me',
+      areas,
+    };
+    if (s.footer) cfg.footer = s.footer;
+    store.set('__config', cfg); // saves (and syncs, where hosting supports it)
+    setHeaderText();
+    build();
+    closeSetup();
+  }
+
+  function openSetup(){
+    if (setupEl) return;
+    setupState.footer = cfg.footer || '';
+    setupEl = document.createElement('div');
+    setupEl.className = 'setup-backdrop';
+    setupEl.innerHTML = '<div class="setup-card"></div>';
+    document.body.appendChild(setupEl);
+    renderSetup();
+  }
+  function closeSetup(){ if (setupEl){ setupEl.remove(); setupEl = null; } }
+
   window.addEventListener('resize', build);
   build();
+  // greet brand-new visitors (data.js opted in, nothing saved yet)
+  if (cfg.setup && !store.get('__config', null)) openSetup();
   // pull cloud state, then redraw with the synced data (including planet edits)
   cloudSync.pull(() => {
     applyConfig();
     build();
+    if (store.get('__config', null)) closeSetup(); // synced config arrived — not a new user
     if (progWrap.style.display === 'block') buildProgress();
     if (friendsWrap.style.display === 'block') buildFriends();
   }).then(() => socialPublish()); // keep the hub summary fresh (glow can change weekly)
