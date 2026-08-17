@@ -819,13 +819,8 @@
       planetDiv.className = 'planet' + (active ? ' active' : '');
       planetDiv.style.width = psize + 'px';
       planetDiv.style.height = psize + 'px';
-      // each planet gets stable gas-giant banding derived from its name
-      // (angle and stripe width vary per planet)
-      const h = labelHash(p.label);
-      const ang = 15 + (h % 40);
-      const bw = 4 + ((h >> 3) % 4);
-      const texture = `repeating-linear-gradient(${ang}deg, rgba(255,255,255,0.10) 0 ${bw}px, rgba(0,0,0,0.12) ${bw}px ${bw * 2}px)`;
-      planetDiv.style.background = `${texture}, radial-gradient(circle at 35% 30%, ${shade(p.color,25)}, ${p.color} 60%, ${shade(p.color,-20)} 100%)`;
+      const h = labelHash(p.label); // still used to vary each moon's speed
+      planetDiv.style.background = `radial-gradient(circle at 35% 30%, ${shade(p.color,25)}, ${p.color} 60%, ${shade(p.color,-20)} 100%)`;
       planetDiv.style.setProperty('--halo', hexRgba(p.color, 0.35));
 
       const labelDiv = document.createElement('div');
