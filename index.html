@@ -1810,8 +1810,9 @@
   function friendConfig(f, data){
     const sum = data.summary || {};
     const name = f.name || sum.name || 'Friend';
+    const capName = name.charAt(0).toUpperCase() + name.slice(1);
     return {
-      title: name + "'s solar system",
+      title: capName + "'s Solar System",
       subtitle: "You're visiting" + (data.updated ? ' · last updated ' + timeAgo(data.updated) : ''),
       sunLabel: sum.name || name,
       footer: 'Click a planet to look around — nothing here can be changed.',
