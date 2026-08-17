@@ -20,14 +20,29 @@
     --good:#3ecf8e;
     --good-glow:rgba(62,207,142,0.55);
     --focus:#7aa2ff;
+    --neb1:#141b3d; /* nebula gradient tints, per theme */
+    --neb2:#151032;
+  }
+  /* themes: each overrides the palette tokens above */
+  body[data-theme="sunset"]{
+    --surface:#180d1f; --surface-2:#261335; --ink-secondary:#c4a8c4; --ink-muted:#8a6f92;
+    --ring:#3d2350; --focus:#ff9d76; --neb1:#3a1535; --neb2:#2a0f2f;
+  }
+  body[data-theme="aurora"]{
+    --surface:#061418; --surface-2:#0c2028; --ink-secondary:#9cc4c4; --ink-muted:#5f8489;
+    --ring:#1c3b44; --focus:#5fd0c7; --neb1:#0a2e2a; --neb2:#10333f;
+  }
+  body[data-theme="nebula"]{
+    --surface:#140a1c; --surface-2:#1f1030; --ink-secondary:#bfa8d4; --ink-muted:#82699c;
+    --ring:#372258; --focus:#ff8fd8; --neb1:#331447; --neb2:#12123f;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;}
   html{background:var(--surface);}
   body{
     background:
-      radial-gradient(ellipse at 20% 10%, #141b3d 0%, transparent 45%),
-      radial-gradient(ellipse at 80% 90%, #151032 0%, transparent 50%),
+      radial-gradient(ellipse at 20% 10%, var(--neb1) 0%, transparent 45%),
+      radial-gradient(ellipse at 80% 90%, var(--neb2) 0%, transparent 50%),
       var(--surface);
     color:var(--ink-primary);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -398,13 +413,42 @@
   .fr-banner-title{ margin:0 0 6px; font-size:16px; font-weight:700; }
   .fr-banner.is-pub .fr-banner-title{ color:var(--good); }
   .fr-banner-text{ margin:0 0 12px; font-size:13px; color:var(--ink-secondary); line-height:1.55; }
+
+  /* celebration bursts */
+  .burst{ position:fixed; inset:0; pointer-events:none; z-index:50; }
+  .burst span{
+    position:absolute; width:8px; height:8px; border-radius:2px;
+    animation:burst-fly 1.4s cubic-bezier(0.16,0.8,0.4,1) forwards;
+  }
+  @keyframes burst-fly{
+    0%{ transform:translate(0,0) rotate(0) scale(1); opacity:1; }
+    100%{ transform:translate(var(--dx), calc(var(--dy) + 90px)) rotate(540deg) scale(0.4); opacity:0; }
+  }
+  @media (prefers-reduced-motion: reduce){ .burst{ display:none; } }
+
+  /* wave / kudos toasts */
+  #toasts{
+    position:fixed; top:16px; right:16px; z-index:60;
+    display:flex; flex-direction:column; gap:8px; align-items:flex-end;
+  }
+  .toast{
+    background:var(--surface-2); border:1px solid var(--good); border-radius:10px;
+    padding:10px 16px; font-size:13px; color:var(--ink-primary);
+    box-shadow:0 6px 24px rgba(0,0,0,0.5); max-width:320px;
+    opacity:0; transform:translateX(20px); transition:opacity 300ms ease, transform 300ms ease;
+  }
+  .toast.show{ opacity:1; transform:none; }
+  .gkudos{ background:none; border:none; cursor:pointer; font-size:14px; padding:0 2px; vertical-align:middle; }
+  .gkudos:disabled{ opacity:0.6; cursor:default; }
+  .fr-wave{ padding:4px 10px; font-size:13px; margin-right:6px; }
+  #visitBar{ gap:10px; }
   /* visiting a friend's system */
   .fr-card[data-code]{ cursor:pointer; }
   .fr-card[data-code]:hover{ border-color:var(--focus); }
   .fr-visit{ margin:12px 0 0; font-size:12px; color:var(--focus); }
   #visitBar{ display:none; justify-content:center; align-items:center; margin-top:14px; }
   body.visiting #visitBar{ display:flex; }
-  body.visiting .view-toggle, body.visiting #editPlanets, body.visiting .btn-sep, body.visiting #aiIdeas{ display:none; }
+  body.visiting .view-toggle, body.visiting #editPlanets, body.visiting .btn-sep, body.visiting #aiIdeas, body.visiting #themeBtn{ display:none; }
 
   /* first-run setup wizard */
   .setup-backdrop{
@@ -484,8 +528,8 @@
     <button id="viewProgress">Progress</button>
     <button id="viewFriends">Friends</button>
   </div>
-  <button class="edit-btn" id="editPlanets">✎ Edit planets</button><span class="btn-sep">·</span><button class="edit-btn" id="aiIdeas">💡 Get Ideas</button>
-  <div id="visitBar"><button class="ics-btn" id="backBtn">← Back to my system</button></div>
+  <button class="edit-btn" id="editPlanets">✎ Edit planets</button><span class="btn-sep">·</span><button class="edit-btn" id="aiIdeas">💡 Get Ideas</button><span class="btn-sep">·</span><button class="edit-btn" id="themeBtn">🎨 Theme</button>
+  <div id="visitBar"><button class="ics-btn" id="backBtn">← Back to my system</button><button class="ics-btn" id="waveBtn">👋 Wave</button></div>
 </header>
 
 <div class="system-wrap" id="system"></div>
@@ -806,7 +850,7 @@
       <div class="goal ${status}">
         ${status === 'done' ? '<span class="gcheck">✓</span>' : '<span class="gdot"></span>'}
         <div>
-          <p class="gtitle">${escAttr(g.title)}</p>
+          <p class="gtitle">${escAttr(g.title)}${visiting ? ` <button class="gkudos" data-gi="${gi}" title="Send kudos for this goal">🎉</button>` : ''}</p>
           ${g.note ? `<p class="gnote">${escAttr(g.note)}</p>` : ''}
           ${extras}
           ${g.updated ? `<p class="gupdated">Updated ${g.updated}</p>` : ''}
@@ -828,7 +872,12 @@
       const g = goals[+el.dataset.gi], t = +el.dataset.t;
       const key = p.label + '|' + g.title + '|' + weekKey();
       const count = store.get(key, 0);
-      store.set(key, (t < count) ? t : t + 1);
+      const next = (t < count) ? t : t + 1;
+      store.set(key, next);
+      if (count < g.perWeek && next >= g.perWeek){ // weekly minimum just reached!
+        const r = el.getBoundingClientRect();
+        celebrate(r.left + 8, r.top + 8, false);
+      }
       refreshActive();
       openPanel(p);
     }));
@@ -836,10 +885,19 @@
     panelBody.querySelectorAll('.gsub').forEach(el => el.addEventListener('click', () => {
       const g = goals[+el.dataset.gi], si = +el.dataset.si;
       const key = p.label + '|' + g.title + '|sub' + si;
+      const wasDone = store.get(key, g.subgoals[si].done || false);
       // checking stamps today's date (so the Progress view has real history)
-      store.set(key, store.get(key, g.subgoals[si].done || false) ? false : todayISO());
+      store.set(key, wasDone ? false : todayISO());
+      if (!wasDone){
+        const r = el.getBoundingClientRect();
+        celebrate(r.left + 10, r.top + 10, false);
+      }
       refreshActive();
       openPanel(p);
+    }));
+    // visiting: kudos buttons on a friend's goals
+    panelBody.querySelectorAll('.gkudos').forEach(btn => btn.addEventListener('click', () => {
+      if (visiting) sendWave(visiting.code, 'kudos', goals[+btn.dataset.gi].title, btn);
     }));
 
     backdrop.classList.add('open');
@@ -1028,7 +1086,7 @@
     system:   { el: wrap,     btn: btnSys,  build: null },
     timeline: { el: tlWrap,   btn: btnTl,   build: buildTimeline },
     progress: { el: progWrap, btn: btnProg, build: buildProgress },
-    friends:  { el: friendsWrap, btn: btnFriends, build: () => { buildFriends(); refreshFriends(); } },
+    friends:  { el: friendsWrap, btn: btnFriends, build: () => { buildFriends(); refreshFriends(); checkInbox(); } },
   };
   function setView(name){
     Object.entries(views).forEach(([k, v]) => {
@@ -1203,6 +1261,7 @@
     panelBody.querySelector('#geCancel').addEventListener('click', () => openPanel(p));
     panelBody.querySelector('#geSave').addEventListener('click', () => {
       const cards = [...list.querySelectorAll('.ge-card')];
+      let newlyDone = false;
       const newGoals = cards.map(card => {
         const orig = card.dataset.gi === 'new' ? {} : (goals[+card.dataset.gi] || {});
         const title = card.querySelector('.ge-title').value.trim();
@@ -1231,6 +1290,7 @@
         // milestone ✓s are baked into the config now — drop the loose click keys
         keysWithPrefix('lss:' + p.label + '|' + title + '|sub').forEach(k => localStorage.removeItem(k));
         if (g.status === 'done' && !g.completed) g.completed = todayISO();
+        if (g.status === 'done' && orig.status !== 'done') newlyDone = true;
         if (g.status !== 'done') delete g.completed;
         if (JSON.stringify(g) !== JSON.stringify(orig)){
           g.updated = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -1241,6 +1301,7 @@
       store.set('__config', cfg); // saves + syncs (also pushes the removed keys)
       build();
       openPanel(p);
+      if (newlyDone) celebrate(window.innerWidth / 2, window.innerHeight * 0.35, true); // 🎉 goal finished
     });
   }
 
@@ -1375,6 +1436,33 @@
   }
   document.getElementById('aiIdeas').addEventListener('click', openAiPanel);
 
+  // ---- themes: alternate skies, synced like everything else ----
+  const THEMES = [
+    { id: 'midnight', label: '🌌 Midnight (classic)' },
+    { id: 'sunset',   label: '🌇 Sunset' },
+    { id: 'aurora',   label: '🌠 Aurora' },
+    { id: 'nebula',   label: '🪻 Nebula' },
+  ];
+  function applyTheme(){
+    const t = store.get('__theme', 'midnight');
+    if (t === 'midnight') document.body.removeAttribute('data-theme');
+    else document.body.setAttribute('data-theme', t);
+  }
+  function openThemePanel(){
+    const cur = store.get('__theme', 'midnight');
+    panelBody.innerHTML = '<h2>🎨 Theme</h2><p class="note">Pick your sky. It saves with the rest of your dashboard.</p>' +
+      THEMES.map(t => `<button class="ics-btn th-btn" data-t="${t.id}" style="display:block;width:100%;margin:8px 0;text-align:left;${t.id === cur ? 'border-color:var(--good);' : ''}">${t.label}${t.id === cur ? ' ✓' : ''}</button>`).join('');
+    panelBody.querySelectorAll('.th-btn').forEach(b => b.addEventListener('click', () => {
+      store.set('__theme', b.dataset.t);
+      applyTheme();
+      openThemePanel();
+    }));
+    backdrop.classList.add('open');
+    panel.classList.add('open');
+  }
+  document.getElementById('themeBtn').addEventListener('click', openThemePanel);
+  applyTheme();
+
   // ---- friends: publish a privacy-filtered summary to the hub; follow codes ----
   // The hub is a separate tiny site: it stores, per friend code, ONLY the
   // summary built below (never your full state), and a code is read-only —
@@ -1469,6 +1557,74 @@
     }));
   }
 
+  // ---- celebrations: a little burst of confetti where good things happen ----
+  function celebrate(x, y, big){
+    const n = big ? 80 : 26;
+    const cont = document.createElement('div');
+    cont.className = 'burst';
+    document.body.appendChild(cont);
+    const colors = ['#ffd166', '#3ecf8e', '#7aa2ff', '#ff8fd8', '#ff9d76', '#8fd3ff'];
+    for (let i = 0; i < n; i++){
+      const p = document.createElement('span');
+      const ang = Math.random() * 2 * Math.PI;
+      const dist = (big ? 260 : 120) * (0.4 + Math.random() * 0.6);
+      p.style.background = colors[i % colors.length];
+      p.style.left = x + 'px';
+      p.style.top = y + 'px';
+      p.style.setProperty('--dx', Math.cos(ang) * dist + 'px');
+      p.style.setProperty('--dy', Math.sin(ang) * dist - (big ? 60 : 30) + 'px');
+      p.style.animationDelay = (Math.random() * 0.1) + 's';
+      cont.appendChild(p);
+    }
+    setTimeout(() => cont.remove(), 1700);
+  }
+
+  // ---- waves & kudos: tiny greetings delivered via the hub inbox ----
+  async function sendWave(code, kind, target, btn){
+    try{
+      await fetch(HUB_URL + '/api/wave/' + encodeURIComponent(code), {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          kind,
+          target: target || '',
+          from: String(cfg.sunLabel || 'A friend').slice(0, 40),
+          fromCode: social.get().code || '',
+        }),
+      });
+      if (btn){ btn.disabled = true; btn.textContent = kind === 'kudos' ? '🎉✓' : '👋 Waved!'; }
+    }catch(e){
+      if (btn) btn.textContent = 'Offline?';
+    }
+  }
+  async function checkInbox(){
+    const s = social.get();
+    if (!s.on || !s.code || !s.writeKey) return;
+    try{
+      const res = await fetch(HUB_URL + '/api/wave/' + s.code + '?key=' + s.writeKey, { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      (data.items || []).slice(0, 6).forEach((it, i) => setTimeout(() => showToast(it), i * 700));
+    }catch(e){ /* offline — greetings will still be waiting next time */ }
+  }
+  function showToast(it){
+    let cont = document.getElementById('toasts');
+    if (!cont){
+      cont = document.createElement('div');
+      cont.id = 'toasts';
+      document.body.appendChild(cont);
+    }
+    const div = document.createElement('div');
+    div.className = 'toast';
+    const who = escAttr(String(it.from || 'A friend').slice(0, 40));
+    div.innerHTML = it.kind === 'kudos'
+      ? `🎉 <b>${who}</b> sent kudos${it.target ? ' on “' + escAttr(String(it.target).slice(0, 80)) + '”' : ''}!`
+      : `👋 <b>${who}</b> waved at you!`;
+    cont.appendChild(div);
+    celebrate(window.innerWidth - 120, 70, false);
+    setTimeout(() => div.classList.add('show'), 30);
+    setTimeout(() => { div.classList.remove('show'); setTimeout(() => div.remove(), 400); }, 8000);
+  }
+
   // a friend's summary is someone else's text — escape everything we render
   function friendCard(f){
     const c = friendsCache[f.code];
@@ -1485,7 +1641,7 @@
     }
     return `<div class="fr-card" ${c && !c.error ? `data-code="${escAttr(f.code)}"` : ''}>
       <div class="fr-head"><p class="fr-name">${escAttr(f.name || f.code)}</p>
-      <span class="fr-updated">${c && c.updated ? escAttr(timeAgo(c.updated)) + ' ' : ''}<button class="ed-del fr-del" data-code="${escAttr(f.code)}" title="Remove friend" aria-label="Remove friend">${TRASH_SVG}</button></span></div>
+      <span class="fr-updated">${c && c.updated ? escAttr(timeAgo(c.updated)) + ' ' : ''}<button class="ics-btn fr-wave" data-code="${escAttr(f.code)}" title="Send a wave">👋</button><button class="ed-del fr-del" data-code="${escAttr(f.code)}" title="Remove friend" aria-label="Remove friend">${TRASH_SVG}</button></span></div>
       ${body}
     </div>`;
   }
@@ -1633,8 +1789,12 @@
       social.save(ns);
       buildFriends();
     }));
+    el.querySelectorAll('.fr-wave').forEach(btn => btn.addEventListener('click', e => {
+      e.stopPropagation(); // don't also open the visit
+      sendWave(btn.dataset.code, 'wave', '', btn);
+    }));
     el.querySelectorAll('.fr-card[data-code]').forEach(card => card.addEventListener('click', e => {
-      if (e.target.closest('.fr-del')) return; // the trash can is not a door
+      if (e.target.closest('.fr-del') || e.target.closest('.fr-wave')) return; // buttons are not doors
       const code = card.dataset.code;
       const f = (social.get().friends || []).find(x => x.code === code);
       const c = friendsCache[code];
@@ -1666,7 +1826,10 @@
   }
   function enterVisit(f, data){
     closePanel();
-    visiting = { prevCfg: cfg };
+    visiting = { prevCfg: cfg, code: f.code, name: f.name || '' };
+    const wb = document.getElementById('waveBtn');
+    wb.disabled = false;
+    wb.textContent = '👋 Wave';
     cfg = friendConfig(f, data);
     document.body.classList.add('visiting');
     setHeaderText();
@@ -1683,6 +1846,9 @@
     setView('friends');
   }
   document.getElementById('backBtn').addEventListener('click', exitVisit);
+  document.getElementById('waveBtn').addEventListener('click', () => {
+    if (visiting) sendWave(visiting.code, 'wave', '', document.getElementById('waveBtn'));
+  });
 
   // ---- first-run setup wizard ----
   // Shown when data.js says `setup: true` and nothing has been saved yet
@@ -1861,11 +2027,12 @@
   // pull cloud state, then redraw with the synced data (including planet edits)
   cloudSync.pull(() => {
     applyConfig();
+    applyTheme(); // a theme picked on another device may have synced in
     build();
     if (store.get('__config', null)) closeSetup(); // synced config arrived — not a new user
     if (progWrap.style.display === 'block') buildProgress();
     if (friendsWrap.style.display === 'block') buildFriends();
-  }).then(() => socialPublish()); // keep the hub summary fresh (glow can change weekly)
+  }).then(() => { socialPublish(); checkInbox(); }); // fresh hub summary + collect any waves/kudos
 </script>
 </body>
 </html>
