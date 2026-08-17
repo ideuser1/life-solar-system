@@ -75,6 +75,8 @@ export async function onRequestPost({ request, env }) {
   const question = String(payload.question || '').slice(0, 2000);
   if (!question.trim()) return json({ error: 'bad-request' }, 400);
   const config = JSON.stringify(payload.config || {}).slice(0, 20000);
+  // optional personal context the user typed or uploaded in the panel
+  const context = String(payload.context || '').slice(0, 20000);
 
   const system =
     'You are the built-in assistant of a personal "Life Solar System" dashboard: ' +
@@ -86,7 +88,9 @@ export async function onRequestPost({ request, env }) {
     'when it helps, concrete suggestions they can add with one tap. ' +
     'For kind=goal, set planet to an existing planet label copied exactly. ' +
     'For kind=planet, propose a broad life area that complements the existing ones. ' +
-    'Suggest 2-5 items at most; quality over quantity. Use realistic dates relative to today.';
+    'Suggest 2-5 items at most; quality over quantity. Use realistic dates relative to today. ' +
+    'The user may share personal context (notes, journal snippets, existing goal lists) — use it to make ' +
+    'suggestions genuinely personal, and do not repeat sensitive details back beyond what a suggestion needs.';
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -105,7 +109,9 @@ export async function onRequestPost({ request, env }) {
           role: 'user',
           content:
             'Today is ' + new Date().toISOString().slice(0, 10) + '.\n' +
-            'My current system (JSON):\n' + config + '\n\nMy question: ' + question,
+            'My current system (JSON):\n' + config +
+            (context ? '\n\nPersonal context I chose to share:\n' + context : '') +
+            '\n\nMy question: ' + question,
         },
       ],
     }),

@@ -1243,12 +1243,38 @@
         <button class="ai-chip">How can I improve my current goals?</button>
       </div>
       <textarea class="ge-subs" id="aiQ" placeholder="What do you want ideas about?"></textarea>
+      <p class="note-label" style="margin-top:14px;">About you (optional)</p>
+      <textarea class="ge-subs" id="aiCtx" placeholder="Paste anything that helps it know you — current goals, a journal entry, what your life looks like right now…">${escAttr(store.get('__aiContext', ''))}</textarea>
+      <div class="fr-row" style="margin:8px 0 4px; align-items:center;">
+        <input type="file" id="aiFile" accept=".txt,.md,.csv,.json,text/plain" hidden>
+        <button class="ics-btn" id="aiUpload">📄 Add from a file</button>
+        <span class="su-hint" id="aiCtxInfo" style="margin:0;"></span>
+      </div>
+      <p class="su-hint" style="margin:0 0 10px;">Saved on your device, remembered for next time, and only sent to the AI when you press Ask. Friends never see it.</p>
       <div class="ed-actions"><button class="ics-btn" id="aiAsk">Ask</button></div>
       <div id="aiOut"></div>
     `;
     const q = panelBody.querySelector('#aiQ');
     const out = panelBody.querySelector('#aiOut');
     const askBtn = panelBody.querySelector('#aiAsk');
+    const ctx = panelBody.querySelector('#aiCtx');
+    const ctxInfo = panelBody.querySelector('#aiCtxInfo');
+    const fileIn = panelBody.querySelector('#aiFile');
+    panelBody.querySelector('#aiUpload').addEventListener('click', () => fileIn.click());
+    fileIn.addEventListener('change', () => {
+      const f = fileIn.files[0];
+      if (!f) return;
+      if (f.size > 200000){ ctxInfo.textContent = 'Too big — text files up to 200 KB.'; fileIn.value = ''; return; }
+      const r = new FileReader();
+      r.onload = () => {
+        const merged = (ctx.value.trim() ? ctx.value.trim() + '\n\n' : '') + '--- from ' + f.name + ' ---\n' + String(r.result);
+        ctx.value = merged.slice(0, 20000);
+        ctxInfo.textContent = merged.length > 20000 ? 'Added (trimmed to fit).' : 'Added ' + f.name + '.';
+        store.set('__aiContext', ctx.value);
+      };
+      r.readAsText(f);
+      fileIn.value = '';
+    });
     panelBody.querySelectorAll('.ai-chip').forEach(chip =>
       chip.addEventListener('click', () => { q.value = chip.textContent; q.focus(); }));
     askBtn.addEventListener('click', async () => {
@@ -1263,11 +1289,12 @@
           goals: (a.goals || []).map(g => ({ title: g.title, status: g.status, due: g.due, perWeek: g.perWeek })),
         })),
       };
+      store.set('__aiContext', ctx.value.trim()); // remember their context for next time
       try {
         const res = await fetch('/api/suggest', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ question: q.value.trim(), config: compact }),
+          body: JSON.stringify({ question: q.value.trim(), config: compact, context: ctx.value.trim().slice(0, 20000) }),
         });
         const data = await res.json().catch(() => null); // non-JSON = no AI endpoint on this copy
         if (!res.ok || !data){
