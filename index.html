@@ -533,7 +533,26 @@
   // is unreachable (offline, or page opened as a local file), everything simply
   // stays local — no errors.
   function debounce(fn, ms){ let t; return () => { clearTimeout(t); t = setTimeout(fn, ms); }; }
+  const HUB_BASE = 'https://solar-friends-hub.pages.dev'; // friends + device sync
+
+  // Device-sync code: a private read/write key to this dashboard's cloud copy
+  // on the hub. Stored per device (plain localStorage key, deliberately OUT of
+  // the synced snapshot). Treat like a password.
+  const syncCode = {
+    get(){ try{ return localStorage.getItem('lss-sync-code') || ''; }catch(e){ return ''; } },
+    set(c){ try{ if (c) localStorage.setItem('lss-sync-code', c); else localStorage.removeItem('lss-sync-code'); }catch(e){} },
+    gen(){
+      const chars = 'abcdefghjkmnpqrstuvwxyz23456789'; // no look-alikes
+      const buf = new Uint32Array(14);
+      crypto.getRandomValues(buf);
+      let s = '';
+      buf.forEach(v => { s += chars[v % chars.length]; });
+      return 'orbit-' + s.slice(0, 7) + '-' + s.slice(7);
+    },
+  };
+
   const cloudSync = {
+    siteHasLegacy: false, // true when this site has its own /api/state (a personal hosted copy)
     localSnapshot(){
       const out = {};
       for (let i = 0; i < localStorage.length; i++){
@@ -545,13 +564,28 @@
       return out;
     },
     push: debounce(() => {
-      fetch('/api/state', { method: 'PUT', body: JSON.stringify(cloudSync.localSnapshot()) }).catch(() => {});
+      const c = syncCode.get();
+      if (c){
+        fetch(HUB_BASE + '/api/sync/' + c, {
+          method: 'PUT', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ state: cloudSync.localSnapshot() }),
+        }).catch(() => {});
+      } else {
+        fetch('/api/state', { method: 'PUT', body: JSON.stringify(cloudSync.localSnapshot()) }).catch(() => {});
+      }
     }, 800),
     async pull(onChanged){
       try{
-        const res = await fetch('/api/state', { cache: 'no-store' });
-        if (!res.ok) return;
-        const data = await res.json();
+        const c = syncCode.get();
+        const res = await fetch(c ? HUB_BASE + '/api/sync/' + c : '/api/state', { cache: 'no-store' });
+        if (!res.ok){
+          // a fresh sync code with nothing stored yet: seed it from this device
+          if (c && res.status === 404) cloudSync.push();
+          return;
+        }
+        const raw = await res.json();
+        const data = c ? (raw.state || {}) : raw;
+        if (!c) cloudSync.siteHasLegacy = true;
         let changed = false;
         Object.entries(data).forEach(([k, v]) => {
           const nv = JSON.stringify(v);
@@ -1336,7 +1370,7 @@
   // The hub is a separate tiny site: it stores, per friend code, ONLY the
   // summary built below (never your full state), and a code is read-only —
   // updating your summary needs the writeKey that stays in your own state.
-  const HUB_URL = cfg.hubUrl || 'https://solar-friends-hub.pages.dev';
+  const HUB_URL = cfg.hubUrl || HUB_BASE;
 
   let visiting = null; // non-null while a friend's system is loaded into cfg
 
@@ -1473,9 +1507,27 @@
         <p class="fr-note">Unchecked planets are private — nothing about them is sent anywhere. "Done" goals are never shared.</p>`;
     }
 
+    const sc = syncCode.get();
+    let devices;
+    if (sc){
+      devices = `
+        <p class="fr-note">This dashboard syncs across your devices. On your phone or another computer, open this site, come to the Friends tab, and enter this <b>sync code</b> — it becomes the same dashboard. <b>Treat it like a password:</b> anyone who has it can see and change everything.</p>
+        <span class="fr-code">${escAttr(sc)}</span><button class="ics-btn" id="syCopy">Copy</button>
+        <div class="ed-actions"><button class="ics-btn" id="syStop">Stop syncing this device</button></div>`;
+    } else if (cloudSync.siteHasLegacy){
+      devices = `<p class="fr-note">This copy already syncs on its own — just open this same website address on your other devices (and "Add to Home Screen" on your phone makes it an app). No sync code needed.</p>`;
+    } else {
+      devices = `
+        <p class="fr-note">Right now this dashboard lives only in this browser. Turn on sync to use it on your phone and computer together — you'll get a private <b>sync code</b> (treat it like a password) to type once on your other device.</p>
+        <div class="ed-actions"><button class="ics-btn" id="syStart">Sync my devices</button></div>
+        <div class="fr-row"><input class="fr-input" id="syCode" placeholder="Already have a sync code? Enter it here"><button class="ics-btn" id="syConnect">Connect</button></div>
+        <p class="fr-err" id="syErr" style="display:none;"></p>`;
+    }
+
     const list = (s.friends || []).map(friendCard).join('');
     el.innerHTML = `
       <p class="tl-month">Your sharing</p><div class="fr-section">${sharing}</div>
+      <p class="tl-month">Your devices</p><div class="fr-section">${devices}</div>
       <p class="tl-month">Your friends</p>
       <div class="fr-row">
         <input class="fr-input" id="frAddCode" placeholder="Paste a friend code (e.g. sun-abc23-def45)">
@@ -1500,6 +1552,44 @@
     on('#frCopy', 'click', () => {
       if (navigator.clipboard) navigator.clipboard.writeText(social.get().code);
       el.querySelector('#frCopy').textContent = 'Copied ✓';
+    });
+    on('#syStart', 'click', () => {
+      syncCode.set(syncCode.gen());
+      cloudSync.push(); // seed the cloud copy from this device
+      buildFriends();
+    });
+    on('#syCopy', 'click', () => {
+      if (navigator.clipboard) navigator.clipboard.writeText(syncCode.get());
+      el.querySelector('#syCopy').textContent = 'Copied ✓';
+    });
+    on('#syStop', 'click', () => {
+      if (!confirm('Stop syncing on this device? Your data stays here and in the cloud copy — this device just disconnects from it.')) return;
+      syncCode.set('');
+      buildFriends();
+    });
+    on('#syConnect', 'click', async () => {
+      const codeIn = el.querySelector('#syCode');
+      const errEl = el.querySelector('#syErr');
+      const c = codeIn.value.trim().toLowerCase();
+      if (!c) return;
+      errEl.style.display = 'none';
+      try{
+        const res = await fetch(HUB_BASE + '/api/sync/' + encodeURIComponent(c), { cache: 'no-store' });
+        if (!res.ok){
+          errEl.textContent = res.status === 404
+            ? 'Nothing found under that code — press "Sync my devices" on your FIRST device, then enter the code it shows here.'
+            : 'The hub had a problem — try again in a moment.';
+          errEl.style.display = 'block';
+          return;
+        }
+        syncCode.set(c);
+        await cloudSync.pull(() => { applyConfig(); build(); });
+        cloudSync.push(); // upload the merged result
+        buildFriends();
+      }catch(e){
+        errEl.textContent = 'Couldn’t reach the hub — are you online?';
+        errEl.style.display = 'block';
+      }
     });
     on('#frTitles', 'change', () => {
       const ns = social.get();

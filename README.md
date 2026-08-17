@@ -9,10 +9,12 @@ one HTML file and one data file, running right on your computer.
 ## Quick start
 
 **The zero-effort way:** just open **https://life-solar-system.pages.dev** —
-your solar system is already running. Everything you do there saves privately
-in your own browser (nothing is uploaded), and the Friends feature works.
-Heads-up: it lives in that one browser — clearing browser data erases it, and
-your phone won't see it. For a portable or synced system, use the steps below.
+your solar system is already running, saves privately in your browser, and can
+be installed like an app (your browser will offer "Add to Home Screen" /
+"Install"). To use it on your phone AND computer as one dashboard, open the
+Friends tab → **Your devices** → "Sync my devices", and type the private sync
+code it gives you into your other device. Prefer owning the files yourself?
+Use the steps below.
 
 1. Get the files: on this page, click the green **Code** button → **Download
    ZIP**, then unzip it anywhere. (Coders: `git clone` works too.)
@@ -65,6 +67,10 @@ privacy:
   and **Stop sharing** deletes your summary from the hub.
 - Sharing and adding friends works even if you only use the local file — you
   just need to be online for the Friends view to update.
+- **Device sync**: the Friends tab also has "Your devices" — turn it on to get
+  a private **sync code** (treat it like a password: it grants full access),
+  enter it once on another device, and both become the same dashboard. Works
+  from the zero-install site and the local file alike.
 
 ## Your data is yours
 
