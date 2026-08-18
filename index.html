@@ -161,11 +161,11 @@
     border-radius:50%;
     position:relative;
     transition:transform 160ms ease;
-    box-shadow:0 0 12px 2px var(--halo, transparent); /* soft halo in the planet's own color */
+    box-shadow:0 0 10px 2px rgba(255,255,255,0.26); /* quiet planets: soft white glow */
   }
   .planet-btn:hover .planet{ transform:scale(1.08); }
   .planet.active{
-    box-shadow:0 0 12px 2px var(--halo, transparent), 0 0 14px 4px rgba(62,207,142,0.32), 0 0 34px 14px rgba(62,207,142,0.16), 0 0 60px 26px rgba(62,207,142,0.07);
+    box-shadow:0 0 14px 4px rgba(62,207,142,0.32), 0 0 34px 14px rgba(62,207,142,0.16), 0 0 60px 26px rgba(62,207,142,0.07);
   }
   .planet-label{
     position:absolute; top:100%; left:50%;
@@ -792,7 +792,6 @@
       planetDiv.style.width = psize + 'px';
       planetDiv.style.height = psize + 'px';
       planetDiv.style.background = `radial-gradient(circle at 35% 30%, ${shade(p.color,25)}, ${p.color} 60%, ${shade(p.color,-20)} 100%)`;
-      planetDiv.style.setProperty('--halo', hexRgba(p.color, 0.35));
 
       const labelDiv = document.createElement('div');
       labelDiv.className = 'planet-label';
@@ -844,10 +843,6 @@
     let b = (num&0x0000FF)+Math.round(255*percent/100);
     r = Math.max(Math.min(255,r),0); g = Math.max(Math.min(255,g),0); b = Math.max(Math.min(255,b),0);
     return '#'+(0x1000000+r*0x10000+g*0x100+b).toString(16).slice(1);
-  }
-  function hexRgba(hex, a){
-    const num = parseInt(hex.slice(1), 16);
-    return `rgba(${num >> 16}, ${(num >> 8) & 255}, ${num & 255}, ${a})`;
   }
 
   const backdrop = document.getElementById('backdrop');
