@@ -8,9 +8,6 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
 <title>Life Solar System</title>
 <style>
   :root{
@@ -106,10 +103,9 @@
   }
   header h1{
     margin:0 0 6px;
-    font-family:"Fraunces", Georgia, serif;
-    font-size:27px;
-    font-weight:600;
-    letter-spacing:0.005em;
+    font-size:22px;
+    font-weight:650;
+    letter-spacing:0.01em;
   }
   header p{
     margin:0;
@@ -151,8 +147,7 @@
   .sun:focus-visible{ outline:2px solid var(--focus); outline-offset:6px; }
   .sun-label{
     position:absolute; top:50%; left:50%; transform:translate(-50%, 46px);
-    font-family:"Fraunces", Georgia, serif; font-style:italic;
-    font-size:13px; color:var(--ink-secondary); text-align:center; width:120px;
+    font-size:11px; color:var(--ink-muted); text-align:center; width:120px;
     z-index:3;
   }
   .planet-btn{
@@ -343,7 +338,7 @@
     background:none; border:none; color:var(--ink-secondary);
     font-size:20px; cursor:pointer; line-height:1;
   }
-  .panel h2{ margin:6px 0 4px; font-size:20px; font-family:"Fraunces", Georgia, serif; font-weight:600; }
+  .panel h2{ margin:6px 0 4px; font-size:18px; }
   .panel .status-row{
     display:flex; align-items:center; gap:8px; margin:10px 0 16px;
     font-size:13px; color:var(--ink-secondary);
@@ -491,7 +486,7 @@
     background:var(--surface-2); border:1px solid var(--ring); border-radius:14px;
     padding:26px 24px;
   }
-  .setup-card h2{ margin:0 0 6px; font-size:21px; font-family:"Fraunces", Georgia, serif; font-weight:600; }
+  .setup-card h2{ margin:0 0 6px; font-size:19px; }
   .su-sub{ color:var(--ink-secondary); font-size:13px; line-height:1.55; margin:0 0 16px; }
   .su-chips{ display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 4px; }
   .su-chip{
@@ -518,7 +513,7 @@
   @media (max-width: 620px){
     .tour-card{ left:12px; right:12px; bottom:12px; width:auto; }
   }
-  .tour-card h3{ margin:0 0 6px; font-size:16px; font-family:"Fraunces", Georgia, serif; font-weight:600; }
+  .tour-card h3{ margin:0 0 6px; font-size:15px; }
   .tour-card p{ margin:0; font-size:12.5px; color:var(--ink-secondary); line-height:1.55; }
   .tour-controls{ display:flex; gap:10px; margin-top:12px; align-items:center; }
   .tour-step{ font-size:11px; color:var(--ink-muted); margin-left:auto; }
