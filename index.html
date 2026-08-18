@@ -8,6 +8,9 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
 <title>Life Solar System</title>
 <style>
   :root{
@@ -95,7 +98,6 @@
   }
   @media (prefers-reduced-motion: reduce){
     .stars, .stars::after, .sun{ animation:none !important; }
-    .shooting-star{ display:none; }
   }
   header{
     position:relative; z-index:1;
@@ -104,9 +106,10 @@
   }
   header h1{
     margin:0 0 6px;
-    font-size:22px;
-    font-weight:650;
-    letter-spacing:0.01em;
+    font-family:"Fraunces", Georgia, serif;
+    font-size:27px;
+    font-weight:600;
+    letter-spacing:0.005em;
   }
   header p{
     margin:0;
@@ -148,7 +151,8 @@
   .sun:focus-visible{ outline:2px solid var(--focus); outline-offset:6px; }
   .sun-label{
     position:absolute; top:50%; left:50%; transform:translate(-50%, 46px);
-    font-size:11px; color:var(--ink-muted); text-align:center; width:120px;
+    font-family:"Fraunces", Georgia, serif; font-style:italic;
+    font-size:13px; color:var(--ink-secondary); text-align:center; width:120px;
     z-index:3;
   }
   .planet-btn{
@@ -167,16 +171,6 @@
   .planet-btn:hover .planet{ transform:scale(1.08); }
   .planet.active{
     box-shadow:0 0 12px 2px var(--halo, transparent), 0 0 14px 4px rgba(62,207,142,0.32), 0 0 34px 14px rgba(62,207,142,0.16), 0 0 60px 26px rgba(62,207,142,0.07);
-  }
-  .shooting-star{
-    position:fixed; z-index:0; pointer-events:none;
-    width:120px; height:2px; border-radius:2px;
-    background:linear-gradient(90deg, rgba(255,255,255,0.85), transparent);
-    animation:shoot 1.2s ease-out forwards;
-  }
-  @keyframes shoot{
-    from{ transform:translate(0,0) rotate(16deg); opacity:1; }
-    to{ transform:translate(-440px,130px) rotate(16deg); opacity:0; }
   }
   .planet-label{
     position:absolute; top:100%; left:50%;
@@ -349,7 +343,7 @@
     background:none; border:none; color:var(--ink-secondary);
     font-size:20px; cursor:pointer; line-height:1;
   }
-  .panel h2{ margin:6px 0 4px; font-size:18px; }
+  .panel h2{ margin:6px 0 4px; font-size:20px; font-family:"Fraunces", Georgia, serif; font-weight:600; }
   .panel .status-row{
     display:flex; align-items:center; gap:8px; margin:10px 0 16px;
     font-size:13px; color:var(--ink-secondary);
@@ -497,7 +491,7 @@
     background:var(--surface-2); border:1px solid var(--ring); border-radius:14px;
     padding:26px 24px;
   }
-  .setup-card h2{ margin:0 0 6px; font-size:19px; }
+  .setup-card h2{ margin:0 0 6px; font-size:21px; font-family:"Fraunces", Georgia, serif; font-weight:600; }
   .su-sub{ color:var(--ink-secondary); font-size:13px; line-height:1.55; margin:0 0 16px; }
   .su-chips{ display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 4px; }
   .su-chip{
@@ -524,7 +518,7 @@
   @media (max-width: 620px){
     .tour-card{ left:12px; right:12px; bottom:12px; width:auto; }
   }
-  .tour-card h3{ margin:0 0 6px; font-size:15px; }
+  .tour-card h3{ margin:0 0 6px; font-size:16px; font-family:"Fraunces", Georgia, serif; font-weight:600; }
   .tour-card p{ margin:0; font-size:12.5px; color:var(--ink-secondary); line-height:1.55; }
   .tour-controls{ display:flex; gap:10px; margin-top:12px; align-items:center; }
   .tour-step{ font-size:11px; color:var(--ink-muted); margin-left:auto; }
@@ -2132,17 +2126,6 @@
     renderSetup();
   }
   function closeSetup(){ if (setupEl){ setupEl.remove(); setupEl = null; } }
-
-  // an occasional shooting star (never for reduced-motion folks)
-  function shootingStar(){
-    const star = document.createElement('div');
-    star.className = 'shooting-star';
-    star.style.top = (5 + Math.random() * 40) + '%';
-    star.style.left = (35 + Math.random() * 60) + '%';
-    document.body.appendChild(star);
-    setTimeout(() => star.remove(), 1500);
-  }
-  if (!reducedMotion) setInterval(() => { if (Math.random() < 0.55) shootingStar(); }, 16000);
 
   // installable app: register the service worker (hosted copies only)
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
