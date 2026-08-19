@@ -519,7 +519,7 @@
   }
   .su-divider::before, .su-divider::after{ content:''; flex:1; height:1px; background:var(--ring); }
   .su-goal-row{ margin:6px 0 0; font-size:13px; color:var(--good); }
-  .su-x{ background:none; border:none; color:#ff8fa3; cursor:pointer; font-size:12px; padding:0 4px; }
+  .su-x{ background:none; border:none; color:#ff8fa3; cursor:pointer; font-size:12px; padding:0 4px; vertical-align:middle; }
 
   /* guided tour after setup */
   .tour-card{
@@ -2171,7 +2171,7 @@
       people keep 4–7. You can rename, recolor, add, or remove planets anytime later.</p>
       <div class="su-chips">
         ${SETUP_PLANETS.map(p => `<button class="su-chip ${s.picked.includes(p.label) ? 'sel' : ''}" data-label="${p.label}" title="${p.hint}"><span class="fr-dot" style="background:${p.color}"></span>${p.label}</button>`).join('')}
-        ${s.custom.map(c => `<button class="su-chip sel" data-custom="${escAttr(c)}" title="Click to remove"><span class="fr-dot" style="background:${PALETTE[(SETUP_PLANETS.length + s.custom.indexOf(c)) % PALETTE.length]}"></span>${escAttr(c)} ✕</button>`).join('')}
+        ${s.custom.map(c => `<button class="su-chip sel" data-custom="${escAttr(c)}" title="Click to remove"><span class="fr-dot" style="background:${PALETTE[(SETUP_PLANETS.length + s.custom.indexOf(c)) % PALETTE.length]}"></span>${escAttr(c)} <span style="color:#ff8fa3;display:inline-flex;vertical-align:middle;">${TRASH_SVG}</span></button>`).join('')}
       </div>
       <div class="fr-row" style="margin:8px 0 0;"><input class="fr-input" id="suCustom" placeholder="Add your own planet…" maxlength="24"><button class="ics-btn" id="suAddCustom">Add</button></div>
       <p class="su-hint" id="suCount"></p>
@@ -2197,7 +2197,7 @@
         <input class="fr-input" id="suGoalInput" placeholder="Write your own goal…" maxlength="120">
         <button class="ics-btn" id="suGoalAdd">Add</button>
       </div>
-      ${chosen.filter(t => !ideas.includes(t)).map(t => `<p class="su-goal-row">✓ ${escAttr(t)} <button class="su-x" data-t="${escAttr(t)}" title="Remove">✕</button></p>`).join('')}
+      ${chosen.filter(t => !ideas.includes(t)).map(t => `<p class="su-goal-row">✓ ${escAttr(t)} <button class="su-x" data-t="${escAttr(t)}" title="Remove">${TRASH_SVG}</button></p>`).join('')}
       <div class="su-actions" style="margin-top:24px;">
         <button class="ics-btn" id="suBack">Back</button>
         <button class="ics-btn" id="suGoalNext">${s.goalIdx === picked.length - 1 ? 'Finish' : 'Next →'}</button>
