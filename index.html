@@ -1269,6 +1269,7 @@
         <button class="ics-btn" id="edCancel">Cancel</button>
       </div>
       <p class="gupdated">Goals stay with a planet when you rename it. Removing a planet removes its goals from the dashboard. Edits sync to all your devices.</p>
+      <p style="margin-top:22px;"><button class="su-skip" id="edReset" style="margin-left:0;color:#ff8fa3;">🔄 Start over — erase everything and run setup again</button></p>
     `;
     const rowsEl = panelBody.querySelector('#edRows');
     const wireDelete = btn => btn.addEventListener('click', () => {
@@ -1285,6 +1286,7 @@
       row.querySelector('.ed-name').select();
     });
     panelBody.querySelector('#edCancel').addEventListener('click', closePanel);
+    panelBody.querySelector('#edReset').addEventListener('click', startOver);
     panelBody.querySelector('#edSave').addEventListener('click', () => {
       const rows = [...rowsEl.querySelectorAll('.ed-row')];
       const seen = new Set();
@@ -1321,6 +1323,24 @@
     panel.classList.add('open');
   }
   document.getElementById('editPlanets').addEventListener('click', openEditor);
+
+  // ---- start over: erase the dashboard (and its cloud copies) and rerun setup ----
+  async function startOver(){
+    if (!confirm('Start over? This erases your WHOLE dashboard — planets, goals, progress, friends. It cannot be undone.')) return;
+    if (!confirm('Last check: really erase everything and run setup again?')) return;
+    const soc = social.get();
+    if (soc.code) social.unpublish(soc); // pull the friend summary off the hub
+    for (let i = localStorage.length - 1; i >= 0; i--){
+      const k = localStorage.key(i);
+      if (k && k.startsWith('lss:')) localStorage.removeItem(k);
+    }
+    try{ // clear the cloud copy too, so other devices don't resurrect it
+      const c = syncCode.get();
+      if (c) await fetch(HUB_BASE + '/api/sync/' + c, { method: 'DELETE' });
+      else await fetch('/api/state', { method: 'PUT', body: '{}' });
+    }catch(e){ /* offline — local wipe still done */ }
+    location.reload();
+  }
 
   // ---- goal editor: revise a planet's goals from the page ----
   const escAttr = s => (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -2112,8 +2132,22 @@
     { label: 'Home',    color: '#d9b26a', hint: 'your space, life admin' },
     { label: 'Purpose', color: '#b9a7f0', hint: 'meaning, giving back' },
   ];
+  // instant starter-goal ideas per standard planet (AI adds personalized ones)
+  const GOAL_IDEAS = {
+    Work:    ['Update my resume', 'Ask for feedback from my manager', 'Finish one lingering project'],
+    School:  ['Stay on top of assignments this term', 'Study 3x a week', 'Go to office hours once'],
+    Money:   ['Save $500', 'Track my spending for a month', 'Set up automatic savings'],
+    Body:    ['Exercise 3x a week', 'Sleep 8 hours a night', 'Drink more water every day'],
+    Mind:    ['Journal once a week', 'Meditate 10 minutes a day', 'One screen-free evening a week'],
+    People:  ['Call family once a week', 'Plan a hangout this month', 'Reconnect with an old friend'],
+    Growth:  ['Read 10 pages a day', 'Learn one new skill', 'Finish an online course'],
+    Play:    ['One small adventure a month', 'Pick an old hobby back up', 'Host a game night'],
+    Home:    ['Declutter one drawer a week', 'Make my space cozier', 'Cook at home more often'],
+    Purpose: ['Volunteer once this quarter', 'Write down what matters most to me', 'One act of kindness a week'],
+  };
+  const GENERIC_IDEAS = ['Set one small weekly habit', 'Write down what success looks like here', 'Take the first tiny step this week'];
   let setupEl = null;
-  const setupState = { step: 1, name: '', picked: [], custom: [], goals: {}, aboutMe: '', footer: '' };
+  const setupState = { step: 1, name: '', picked: [], custom: [], goals: {}, aboutMe: '', goalIdx: 0, aiIdeas: {}, footer: '' };
 
   function setupHTML(){
     const s = setupState;
@@ -2134,18 +2168,27 @@
       <div class="fr-row" style="margin:8px 0 0;"><input class="fr-input" id="suCustom" placeholder="Add your own planet…" maxlength="24"><button class="ics-btn" id="suAddCustom">Add</button></div>
       <p class="su-hint" id="suCount"></p>
       <div class="su-actions"><button class="ics-btn" id="suBack">Back</button><button class="ics-btn" id="suNext">Next</button><button class="su-skip" id="suSkip">Skip setup</button></div>`;
+    // step 3: one planet at a time — pick a suggestion, write your own, or skip
     const picked = [...s.picked, ...s.custom];
+    const label = picked[s.goalIdx] || '';
+    const ideas = s.aiIdeas[label] || GOAL_IDEAS[label] || GENERIC_IDEAS;
+    const cur = s.goals[label] || '';
     return `
-      <h2>Add starting goals</h2>
-      <p class="su-sub">Give any planet a first goal — or tell the AI a bit about yourself and let it
-      suggest one for each planet. Totally optional: you can add goals anytime with the ✎ buttons.</p>
-      <div class="fr-row" style="margin:0 0 4px;">
-        <input class="fr-input" id="suAbout" placeholder="About you, for better ideas — e.g. college student, loves hiking" value="${escAttr(s.aboutMe)}" maxlength="200">
-        <button class="ics-btn" id="suSuggest">✨ Suggest</button>
+      <h2>${escAttr(label)} <span style="color:var(--ink-muted);font-size:14px;font-weight:400;">· planet ${s.goalIdx + 1} of ${picked.length}</span></h2>
+      <p class="su-sub">Pick a starter goal, write your own, or skip — you can always add goals later.</p>
+      ${s.goalIdx === 0 ? `<input class="fr-input" id="suAbout" placeholder="About you, for better AI ideas (optional) — e.g. college student, loves hiking" value="${escAttr(s.aboutMe)}" maxlength="200" style="width:100%;margin-bottom:10px;">` : ''}
+      <div class="su-chips">
+        ${ideas.map(t => `<button class="su-chip su-idea ${cur === t ? 'sel' : ''}" data-t="${escAttr(t)}">${escAttr(t)}</button>`).join('')}
+        <button class="su-chip" id="suAI">✨ More ideas</button>
       </div>
-      <p class="su-hint" id="suGoalMsg" style="margin:0 0 8px;"></p>
-      ${picked.map(l => `<label class="ge-field" style="margin:7px 0;">${escAttr(l)}<input class="fr-input su-goal" data-label="${escAttr(l)}" placeholder="(optional) a goal for ${escAttr(l)}" value="${escAttr(s.goals[l] || '')}" maxlength="120" style="width:100%;"></label>`).join('')}
-      <div class="su-actions"><button class="ics-btn" id="suBack">Back</button><button class="ics-btn" id="suFinish">Create my solar system</button><button class="su-skip" id="suSkip">Skip setup</button></div>`;
+      <label class="ge-field">Or write your own<input class="fr-input" id="suGoalInput" placeholder="(optional)" value="${escAttr(cur)}" maxlength="120" style="width:100%;"></label>
+      <p class="su-hint" id="suGoalMsg"></p>
+      <div class="su-actions">
+        <button class="ics-btn" id="suBack">Back</button>
+        <button class="ics-btn" id="suGoalNext">${s.goalIdx === picked.length - 1 ? 'Finish ✨' : 'Next →'}</button>
+        <button class="su-skip" id="suGoalSkip">Skip this planet</button>
+        <button class="su-skip" id="suSkipRest">Skip the rest</button>
+      </div>`;
   }
 
   function renderSetup(){
@@ -2153,7 +2196,11 @@
     const s = setupState;
     const on = (sel, fn) => { const n = setupEl.querySelector(sel); if (n) n.addEventListener('click', fn); };
     on('#suSkip', closeSetup);
-    on('#suBack', () => { s.step--; renderSetup(); });
+    on('#suBack', () => {
+      if (s.step === 3 && s.goalIdx > 0) s.goalIdx--;
+      else s.step--;
+      renderSetup();
+    });
     on('#suNext', () => {
       if (s.step === 1){
         s.name = setupEl.querySelector('#suName').value.trim();
@@ -2161,6 +2208,7 @@
       } else if (s.step === 2){
         if (!s.picked.length && !s.custom.length){ setupEl.querySelector('#suCount').textContent = 'Pick at least one planet to continue.'; return; }
         s.step = 3;
+        s.goalIdx = 0;
       }
       renderSetup();
     });
@@ -2169,42 +2217,53 @@
       if (v && ![...s.picked, ...s.custom].some(x => x.toLowerCase() === v.toLowerCase())) s.custom.push(v);
       renderSetup();
     });
-    on('#suFinish', finishSetup);
-    // step 3: remember typed goals/context across re-renders
-    setupEl.querySelectorAll('.su-goal').forEach(inp => inp.addEventListener('input', () => { s.goals[inp.dataset.label] = inp.value; }));
-    const aboutIn = setupEl.querySelector('#suAbout');
-    if (aboutIn) aboutIn.addEventListener('input', () => { s.aboutMe = aboutIn.value; });
-    on('#suSuggest', async () => {
-      const btn = setupEl.querySelector('#suSuggest');
-      const msg = setupEl.querySelector('#suGoalMsg');
-      const all = [...s.picked, ...s.custom];
-      btn.disabled = true; btn.textContent = 'Thinking…';
-      msg.textContent = 'Asking the AI for one idea per planet — can take ~20 seconds…';
-      try{
-        const res = await fetch('/api/suggest', {
-          method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            question: 'Suggest exactly one short, beginner-friendly starter goal for EACH of these planets: ' + all.join(', ') + '. One goal per planet, no more.',
-            config: { title: 'Brand-new solar system', areas: all.map(l => ({ planet: l, goals: [] })) },
-            context: (s.aboutMe || '').slice(0, 200),
-          }),
-        });
-        const data = res.ok ? await res.json().catch(() => null) : null;
-        if (data && (data.suggestions || []).length){
-          data.suggestions.forEach(sg => {
-            const match = all.find(l => l.toLowerCase() === String(sg.planet || '').toLowerCase());
-            if (match && sg.title && !(s.goals[match] || '').trim()) s.goals[match] = String(sg.title).slice(0, 120);
+    // step 3 wiring: one planet at a time
+    const gInput = setupEl.querySelector('#suGoalInput');
+    if (gInput){
+      const picked = [...s.picked, ...s.custom];
+      const label = picked[s.goalIdx];
+      gInput.addEventListener('input', () => { s.goals[label] = gInput.value; });
+      const aboutIn = setupEl.querySelector('#suAbout');
+      if (aboutIn) aboutIn.addEventListener('input', () => { s.aboutMe = aboutIn.value; });
+      setupEl.querySelectorAll('.su-idea').forEach(ch => ch.addEventListener('click', () => {
+        s.goals[label] = ch.dataset.t;
+        renderSetup();
+      }));
+      const nextPlanet = () => {
+        if (s.goalIdx < picked.length - 1){ s.goalIdx++; renderSetup(); }
+        else finishSetup();
+      };
+      on('#suGoalNext', () => { s.goals[label] = gInput.value.trim(); nextPlanet(); });
+      on('#suGoalSkip', () => { s.goals[label] = ''; nextPlanet(); });
+      on('#suSkipRest', finishSetup);
+      on('#suAI', async () => {
+        const btn = setupEl.querySelector('#suAI');
+        const msg = setupEl.querySelector('#suGoalMsg');
+        btn.disabled = true; btn.textContent = 'Thinking…';
+        try{
+          const res = await fetch('/api/suggest', {
+            method: 'POST', headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              question: 'Suggest 3 short, beginner-friendly starter goals for my "' + label + '" planet. Only that planet, nothing else.',
+              config: { title: 'Brand-new solar system', areas: [{ planet: label, goals: [] }] },
+              context: (s.aboutMe || '').slice(0, 200),
+            }),
           });
-          renderSetup();
-          setupEl.querySelector('#suGoalMsg').textContent = '✨ Ideas filled in — edit or clear any you don’t like.';
-          return;
-        }
-        msg.textContent = res.status === 429
-          ? 'The AI hit its hourly limit — type your own for now.'
-          : 'The AI isn’t available right now — type your own goals instead.';
-      }catch(e){ msg.textContent = 'Couldn’t reach the AI — are you online? Type your own goals instead.'; }
-      btn.disabled = false; btn.textContent = '✨ Suggest';
-    });
+          const data = res.ok ? await res.json().catch(() => null) : null;
+          const titles = ((data && data.suggestions) || []).map(x => String(x.title || '').slice(0, 120)).filter(Boolean).slice(0, 4);
+          if (titles.length){
+            s.aiIdeas[label] = titles;
+            renderSetup();
+            setupEl.querySelector('#suGoalMsg').textContent = '✨ Fresh ideas — tap one, or write your own.';
+            return;
+          }
+          msg.textContent = res.status === 429
+            ? 'The AI hit its hourly limit — pick a suggestion or write your own.'
+            : 'The AI isn’t available right now — pick a suggestion or write your own.';
+        }catch(e){ msg.textContent = 'Couldn’t reach the AI — pick a suggestion or write your own.'; }
+        btn.disabled = false; btn.textContent = '✨ More ideas';
+      });
+    }
     setupEl.querySelectorAll('.su-chip[data-label]').forEach(ch => ch.addEventListener('click', () => {
       const l = ch.dataset.label;
       s.picked = s.picked.includes(l) ? s.picked.filter(x => x !== l) : [...s.picked, l];
