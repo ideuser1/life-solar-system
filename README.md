@@ -1,5 +1,7 @@
 # Life Solar System
 
+![The Life Solar System dashboard](screenshot.png)
+
 A personal dashboard where your life is a solar system: you're the sun, and each
 part of your life is a planet orbiting you. A planet **glows green** when
 something in that area is actively happening. Click a planet to see its goals,
