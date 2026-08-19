@@ -37,6 +37,10 @@
     --surface:#140a1c; --surface-2:#1f1030; --ink-secondary:#d8c6e8; --ink-muted:#ad93c8;
     --ring:#372258; --focus:#ff8fd8; --neb1:#331447; --neb2:#12123f;
   }
+  html[data-theme="sunrise"]{
+    --surface:#1d0d12; --surface-2:#2e1420; --ink-secondary:#e8c8cc; --ink-muted:#c298a2;
+    --ring:#4d2438; --focus:#ff9d76; --neb1:#4a1a2e; --neb2:#42230f;
+  }
   *{box-sizing:border-box;}
   /* min-height (not height): the body box must grow with long pages so its
      background gradient covers everything — height:100% capped it at one
@@ -94,7 +98,7 @@
     50%{ box-shadow:0 0 55px 16px rgba(255,171,64,0.48), 0 0 110px 42px rgba(255,140,60,0.22); }
   }
   @media (prefers-reduced-motion: reduce){
-    .stars, .stars::after, .sun{ animation:none !important; }
+    .stars, .stars::after, .sun, #newGoalBtn.glow-cta{ animation:none !important; }
   }
   header{
     position:relative; z-index:1;
@@ -134,6 +138,11 @@
     border:1px solid var(--ring);
     border-radius:50%;
     transform:translate(-50%,-50%);
+    transition:border-color 200ms ease, box-shadow 200ms ease;
+  }
+  .orbit.lit{ /* hovering a planet lights up its orbit */
+    border-color:rgba(255,255,255,0.35);
+    box-shadow:0 0 12px rgba(255,255,255,0.08), inset 0 0 12px rgba(255,255,255,0.08);
   }
   .sun{
     position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
@@ -266,6 +275,14 @@
   }
   .edit-btn:hover{ color:var(--ink-primary); }
   .btn-sep{ color:var(--ink-muted); font-size:12px; margin:0 10px; vertical-align:middle; }
+  #newGoalBtn.glow-cta{ /* beckons brand-new users toward their first goal */
+    color:var(--good); border:1px solid var(--good); border-radius:14px; padding:4px 12px;
+    animation:cta-pulse 2s ease-in-out infinite;
+  }
+  @keyframes cta-pulse{
+    0%,100%{ box-shadow:0 0 4px 1px rgba(62,207,142,0.25); }
+    50%{ box-shadow:0 0 12px 4px rgba(62,207,142,0.5); }
+  }
   .ed-row{ display:flex; align-items:center; gap:8px; margin:8px 0; }
   .ed-color{
     width:34px; height:30px; flex:none;
@@ -474,7 +491,7 @@
   .fr-visit{ margin:12px 0 0; font-size:12px; color:var(--focus); }
   #visitBar{ display:none; justify-content:center; align-items:center; margin-top:14px; }
   body.visiting #visitBar{ display:flex; }
-  body.visiting .view-toggle, body.visiting #editPlanets, body.visiting .btn-sep, body.visiting #aiIdeas, body.visiting #themeBtn{ display:none; }
+  body.visiting .view-toggle, body.visiting #editPlanets, body.visiting .btn-sep, body.visiting #aiIdeas, body.visiting #themeBtn, body.visiting #newGoalBtn{ display:none; }
 
   /* first-run setup wizard */
   .setup-backdrop{
@@ -554,7 +571,7 @@
     <button id="viewProgress">Progress</button>
     <button id="viewFriends">Friends</button>
   </div>
-  <button class="edit-btn" id="editPlanets">✎ Edit planets</button><span class="btn-sep">·</span><button class="edit-btn" id="aiIdeas">💡 Get Ideas</button><span class="btn-sep">·</span><button class="edit-btn" id="themeBtn">🎨 Theme</button>
+  <button class="edit-btn" id="newGoalBtn">＋ New goal</button><span class="btn-sep">·</span><button class="edit-btn" id="editPlanets">✎ Edit planets</button><span class="btn-sep">·</span><button class="edit-btn" id="aiIdeas">💡 Get Ideas</button><span class="btn-sep">·</span><button class="edit-btn" id="themeBtn">🎨 Theme</button>
   <div id="visitBar"><button class="ics-btn" id="backBtn">← Back to my system</button><button class="ics-btn" id="waveBtn">👋 Wave</button></div>
 </header>
 
@@ -805,12 +822,36 @@
       btn.appendChild(labelDiv);
       btn.appendChild(statusDiv);
       btn.addEventListener('click', () => openPanel(p));
+      btn.addEventListener('mouseenter', () => orbitEl.classList.add('lit'));
+      btn.addEventListener('mouseleave', () => orbitEl.classList.remove('lit'));
       areaEls[i] = { btn, planetDiv, statusDiv };
 
       wrap.appendChild(btn);
     });
     placePlanets(); // position immediately so nothing flashes at the center
+    refreshCta();
   }
+
+  // the ＋ New goal button pulses until the very first goal exists
+  function refreshCta(){
+    const total = cfg.areas.reduce((n, a) => n + (a.goals || []).length, 0);
+    document.getElementById('newGoalBtn').classList.toggle('glow-cta', total === 0 && !visitingSafe());
+  }
+  function visitingSafe(){ try{ return !!visiting; }catch(e){ return false; } }
+  function openNewGoal(){
+    if (!cfg.areas.length){ openEditor(); return; }
+    panelBody.innerHTML = '<h2>＋ New goal</h2><p class="note">Which planet does it belong to?</p>' +
+      cfg.areas.map((a, i) => `<button class="ics-btn ng-p" data-i="${i}" style="display:block;width:100%;margin:8px 0;text-align:left;"><span class="fr-dot" style="background:${a.color}"></span> ${escAttr(a.label)}</button>`).join('');
+    panelBody.querySelectorAll('.ng-p').forEach(b => b.addEventListener('click', () => {
+      const p = cfg.areas[+b.dataset.i];
+      openGoalEditor(p);
+      const add = panelBody.querySelector('#geAdd');
+      if (add) add.click(); // start them straight on a fresh goal card
+    }));
+    backdrop.classList.add('open');
+    panel.classList.add('open');
+  }
+  document.getElementById('newGoalBtn').addEventListener('click', openNewGoal);
 
   // ---- orbital motion (JS-driven so orbits can be ellipses) ----
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1489,6 +1530,7 @@
     { id: 'sunset',   label: '🌇 Sunset' },
     { id: 'aurora',   label: '🌠 Aurora' },
     { id: 'nebula',   label: '🪻 Nebula' },
+    { id: 'sunrise',  label: '🌅 Sunrise' },
   ];
   function applyTheme(){
     const t = store.get('__theme', 'midnight');
@@ -1597,7 +1639,36 @@
         const fr = (ns.friends || []).find(x => x.code === code);
         if (fr && fr.name !== nm){ fr.name = nm; social.save(ns); }
       }
+      if (friendsCache[code].summary) updateFriendFeed(code, nm || 'A friend', friendsCache[code].summary);
     }catch(e){ friendsCache[code] = { error: 'Couldn’t reach the hub — are you online?' }; }
+  }
+
+  // "Lately": notice what changed in a friend's shared summary since last look
+  function updateFriendFeed(code, name, summary){
+    const snaps = store.get('__friendSnaps', {});
+    const prev = snaps[code];
+    const now = {};
+    (summary.areas || []).slice(0, 30).forEach(a => {
+      now[a.label] = { active: !!a.active, goals: (a.goals || []).slice(0, 20).map(g => String(g.title || '').slice(0, 80)) };
+    });
+    const events = [];
+    if (prev){ // first fetch is just a baseline — no events
+      Object.entries(now).forEach(([label, cur]) => {
+        const p = prev[label];
+        if (!p){ events.push(`🪐 ${name} added a new planet: ${label}`); return; }
+        if (!p.active && cur.active) events.push(`🌱 ${name}'s ${label} planet woke up`);
+        cur.goals.forEach(t => { if (!p.goals.includes(t)) events.push(`✨ ${name} added “${t}” to ${label}`); });
+      });
+    }
+    snaps[code] = now;
+    store.set('__friendSnaps', snaps);
+    if (events.length){
+      const feed = store.get('__friendFeed', []);
+      const day = todayISO();
+      events.slice(0, 5).forEach(msg => feed.push({ t: day, msg: msg.slice(0, 160) }));
+      store.set('__friendFeed', feed.slice(-20));
+      if (friendsWrap.style.display === 'block') buildFriends();
+    }
   }
   function refreshFriends(){
     (social.get().friends || []).forEach(f => fetchFriend(f.code).then(() => {
@@ -1749,7 +1820,13 @@
         <input class="fr-input" id="frAddCode" placeholder="Paste a friend code (e.g. sun-abc23-def45)">
         <button class="ics-btn" id="frAdd">Add</button>
       </div>
-      ${list || '<p class="fr-note">No friends yet. Swap friend codes with someone who has their own solar system!</p>'}`;
+      ${list || '<p class="fr-note">No friends yet. Swap friend codes with someone who has their own solar system!</p>'}
+      ${(() => {
+        const feed = store.get('__friendFeed', []);
+        if (!feed.length) return '';
+        return '<p class="tl-month">Lately</p>' + feed.slice().reverse().map(e =>
+          `<p class="fr-note">${escAttr(e.msg)} <span style="color:var(--ink-muted)">· ${escAttr(fmtShortDate(e.t))}</span></p>`).join('');
+      })()}`;
 
     const on = (sel, ev, fn) => { const n = el.querySelector(sel); if (n) n.addEventListener(ev, fn); };
     on('#frToggle', 'click', () => {
