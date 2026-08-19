@@ -65,7 +65,7 @@ const system = {
           due: "2026-12-31",           // OPTIONAL deadline, YYYY-MM-DD
           note: "Gym Tue/Thu, run Sat",// OPTIONAL one short line of context
           subgoals: [                  // OPTIONAL milestone checklist
-            { title: "First 5k run" },
+            { title: "First 5k run", due: "2026-09-01" },  // due is optional
           ],
         },
       ],

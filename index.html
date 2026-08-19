@@ -904,7 +904,8 @@
         extras += '<div class="gsubs">' + g.subgoals.map((s, si) => {
           const done = store.get(p.label + '|' + g.title + '|sub' + si, s.done || false);
           const when = (typeof done === 'string') ? ' · ' + fmtShortDate(done) : '';
-          return `<button class="gsub ${done ? 'done' : ''}" data-gi="${gi}" data-si="${si}"><span class="box">${done ? '✓' : ''}</span><span class="stitle">${s.title}${when}</span></button>`;
+          const dueTxt = (!done && s.due) ? ' · due ' + fmtShortDate(s.due) : '';
+          return `<button class="gsub ${done ? 'done' : ''}" data-gi="${gi}" data-si="${si}"><span class="box">${done ? '✓' : ''}</span><span class="stitle">${s.title}${when}${dueTxt}</span></button>`;
         }).join('') + '</div>';
       }
       return `
@@ -992,11 +993,14 @@
   const btnSys = document.getElementById('viewSystem');
   const btnTl = document.getElementById('viewTimeline');
 
-  // every goal with a due date, across all areas, soonest first
+  // everything with a due date — goals AND dated milestones — soonest first
   function datedGoals(){
     const items = [];
-    cfg.areas.forEach(a => (a.goals || []).forEach(g => { if (g.due) items.push({ a, g }); }));
-    items.sort((x, y) => x.g.due.localeCompare(y.g.due));
+    cfg.areas.forEach(a => (a.goals || []).forEach(g => {
+      if (g.due) items.push({ a, g, due: g.due });
+      (g.subgoals || []).forEach((s, si) => { if (s.due) items.push({ a, g, sub: s, si, due: s.due }); });
+    }));
+    items.sort((x, y) => x.due.localeCompare(y.due));
     return items;
   }
 
@@ -1006,17 +1010,21 @@
     const today = todayISO();
     const fmt = (due, opts) => new Date(due + 'T00:00:00').toLocaleDateString(undefined, opts);
     let html = '', lastMonth = '';
-    items.forEach(({ a, g }, i) => {
-      const month = fmt(g.due, { month: 'long', year: 'numeric' });
+    items.forEach((it, i) => {
+      const { a, g } = it;
+      const month = fmt(it.due, { month: 'long', year: 'numeric' });
       if (month !== lastMonth){ html += `<p class="tl-month">${month}</p>`; lastMonth = month; }
-      const overdue = g.due < today && g.status !== 'done';
+      const doneFlag = it.sub
+        ? !!store.get(a.label + '|' + g.title + '|sub' + it.si, it.sub.done || false)
+        : g.status === 'done';
+      const overdue = it.due < today && !doneFlag;
       html += `
-      <div class="tl-item ${g.status === 'done' ? 'done' : ''}" data-i="${i}">
-        <span class="tl-date">${fmt(g.due, { month: 'short', day: 'numeric' })}</span>
+      <div class="tl-item ${doneFlag ? 'done' : ''}" data-i="${i}">
+        <span class="tl-date">${fmt(it.due, { month: 'short', day: 'numeric' })}</span>
         <span class="tl-dot" style="background:${a.color}"></span>
         <div>
-          <p class="tl-title">${g.title}</p>
-          <p class="tl-area">${a.label}${overdue ? ' · <span class="tl-overdue">overdue</span>' : ''}</p>
+          <p class="tl-title">${escAttr(it.sub ? it.sub.title : g.title)}</p>
+          <p class="tl-area">${escAttr(it.sub ? g.title + ' · ' + a.label : a.label)}${overdue ? ' · <span class="tl-overdue">overdue</span>' : ''}</p>
         </div>
       </div>`;
     });
@@ -1168,15 +1176,18 @@
   function buildICS(){
     const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Life Solar System//EN',
                    'CALSCALE:GREGORIAN', 'X-WR-CALNAME:' + icsEscape(cfg.title)];
-    datedGoals().forEach(({ a, g }) => {
-      const start = g.due.replace(/-/g, '');
-      const d = new Date(g.due + 'T00:00:00');
+    datedGoals().forEach(it => {
+      const { a, g } = it;
+      const title = it.sub ? it.sub.title : g.title;
+      const context = it.sub ? g.title : a.label;
+      const start = it.due.replace(/-/g, '');
+      const d = new Date(it.due + 'T00:00:00');
       d.setDate(d.getDate() + 1); // all-day events end the following day
       const end = d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate());
-      const uid = (a.label + '-' + g.title).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80) + '@life-solar-system';
+      const uid = (a.label + '-' + g.title + (it.sub ? '-' + it.sub.title : '')).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80) + '@life-solar-system';
       lines.push('BEGIN:VEVENT', 'UID:' + uid, 'DTSTAMP:' + start + 'T000000Z',
                  'DTSTART;VALUE=DATE:' + start, 'DTEND;VALUE=DATE:' + end,
-                 'SUMMARY:' + icsEscape(g.title + ' (' + a.label + ')'), 'END:VEVENT');
+                 'SUMMARY:' + icsEscape(title + ' (' + context + ')'), 'END:VEVENT');
     });
     lines.push('END:VCALENDAR');
     return lines.join('\r\n');
@@ -1297,7 +1308,7 @@
         </select>
       </label>
       <label class="ge-field ge-times-row" ${g.perWeek && g.perWeek !== 7 ? '' : 'style="display:none"'}>How many times a week? <input type="number" class="ed-name ge-pw" min="1" max="14" value="${(g.perWeek && g.perWeek !== 7) ? g.perWeek : 3}"></label>
-      <label class="ge-field">Milestones — checkpoints on the way, one per line (optional)<textarea class="ge-subs" placeholder="e.g.&#10;$250 saved&#10;$500 saved">${escAttr((g.subgoals || []).map(s => s.title).join('\n'))}</textarea></label>
+      <label class="ge-field">Milestones — checkpoints on the way, one per line. Add a due date with " @ " (optional)<textarea class="ge-subs" placeholder="e.g.&#10;$250 saved @ 2026-09-15&#10;$500 saved">${escAttr((g.subgoals || []).map(s => s.title + (s.due ? ' @ ' + s.due : '')).join('\n'))}</textarea></label>
     </div>`;
   }
 
@@ -1356,13 +1367,19 @@
           // only while it still makes sense (must exceed the new minimum)
           if (!(orig.perWeekMax > pw)) delete g.perWeekMax;
         } else { delete g.perWeek; delete g.perWeekMax; }
-        const subTitles = card.querySelector('.ge-subs').value.split('\n').map(s => s.trim()).filter(Boolean);
-        if (subTitles.length){
-          // carry each milestone's ✓ (and its date) over by matching text
-          g.subgoals = subTitles.map(t => {
+        const subLines = card.querySelector('.ge-subs').value.split('\n').map(s => s.trim()).filter(Boolean);
+        if (subLines.length){
+          // carry each milestone's ✓ (and its date) over by matching text;
+          // an optional " @ YYYY-MM-DD" suffix becomes the milestone's due date
+          g.subgoals = subLines.map(line => {
+            const m = line.match(/^(.*?)\s*@\s*(\d{4}-\d{2}-\d{2})\s*$/);
+            const t = (m ? m[1] : line).trim();
             const oi = (orig.subgoals || []).findIndex(s => s.title === t);
             const done = (oi >= 0) ? store.get(p.label + '|' + orig.title + '|sub' + oi, orig.subgoals[oi].done || false) : false;
-            return done ? { title: t, done } : { title: t };
+            const sub = { title: t };
+            if (m) sub.due = m[2];
+            if (done) sub.done = done;
+            return sub;
           });
         } else delete g.subgoals;
         if (orig.title && orig.title !== title){

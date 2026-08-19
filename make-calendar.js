@@ -35,18 +35,21 @@ const esc = s => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\
                  'CALSCALE:GREGORIAN', 'X-WR-CALNAME:' + esc(system.title)];
 
   const items = [];
-  system.areas.forEach(a => (a.goals || []).forEach(g => { if (g.due) items.push({ a, g }); }));
-  items.sort((x, y) => x.g.due.localeCompare(y.g.due));
+  system.areas.forEach(a => (a.goals || []).forEach(g => {
+    if (g.due) items.push({ a, g, title: g.title, context: a.label, due: g.due });
+    (g.subgoals || []).forEach(s => { if (s.due) items.push({ a, g, title: s.title, context: g.title, due: s.due }); });
+  }));
+  items.sort((x, y) => x.due.localeCompare(y.due));
 
-  items.forEach(({ a, g }) => {
-    const start = g.due.replace(/-/g, '');
-    const d = new Date(g.due + 'T00:00:00');
+  items.forEach(({ a, g, title, context, due }) => {
+    const start = due.replace(/-/g, '');
+    const d = new Date(due + 'T00:00:00');
     d.setDate(d.getDate() + 1); // all-day events end the following day
     const end = d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate());
-    const uid = (a.label + '-' + g.title).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80) + '@life-solar-system';
+    const uid = (a.label + '-' + g.title + '-' + title).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80) + '@life-solar-system';
     lines.push('BEGIN:VEVENT', 'UID:' + uid, 'DTSTAMP:' + start + 'T000000Z',
                'DTSTART;VALUE=DATE:' + start, 'DTEND;VALUE=DATE:' + end,
-               'SUMMARY:' + esc(g.title + ' (' + a.label + ')'), 'END:VEVENT');
+               'SUMMARY:' + esc(title + ' (' + context + ')'), 'END:VEVENT');
   });
 
   lines.push('END:VCALENDAR');
