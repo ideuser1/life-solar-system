@@ -518,6 +518,8 @@
     color:var(--ink-muted); font-size:12px;
   }
   .su-divider::before, .su-divider::after{ content:''; flex:1; height:1px; background:var(--ring); }
+  .su-goal-row{ margin:6px 0 0; font-size:13px; color:var(--good); }
+  .su-x{ background:none; border:none; color:#ff8fa3; cursor:pointer; font-size:12px; padding:0 4px; }
 
   /* guided tour after setup */
   .tour-card{
@@ -1752,7 +1754,7 @@
         const p = prev[label];
         if (!p){ events.push(`🪐 ${name} added a new planet: ${label}`); return; }
         if (!p.active && cur.active) events.push(`🌱 ${name}'s ${label} planet woke up`);
-        cur.goals.forEach(t => { if (!p.goals.includes(t)) events.push(`✨ ${name} added “${t}” to ${label}`); });
+        cur.goals.forEach(t => { if (!p.goals.includes(t)) events.push(`＋ ${name} added “${t}” to ${label}`); });
       });
     }
     snaps[code] = now;
@@ -2174,11 +2176,11 @@
       <div class="fr-row" style="margin:8px 0 0;"><input class="fr-input" id="suCustom" placeholder="Add your own planet…" maxlength="24"><button class="ics-btn" id="suAddCustom">Add</button></div>
       <p class="su-hint" id="suCount"></p>
       <div class="su-actions"><button class="ics-btn" id="suBack">Back</button><button class="ics-btn" id="suNext">Next</button><button class="su-skip" id="suSkip">Skip setup</button></div>`;
-    // step 3: one planet at a time — a clear planet header, suggestions, or your own
+    // step 3: one planet at a time — vertical suggestions, add as many goals as you like
     const picked = [...s.picked, ...s.custom];
     const label = picked[s.goalIdx] || '';
     const ideas = s.aiIdeas[label] || GOAL_IDEAS[label] || GENERIC_IDEAS;
-    const cur = s.goals[label] || '';
+    const chosen = s.goals[label] || [];
     const pColor = (SETUP_PLANETS.find(x => x.label === label) || {}).color || PALETTE[s.goalIdx % PALETTE.length];
     return `
       <div style="text-align:center;margin-bottom:16px;">
@@ -2186,14 +2188,16 @@
         <h2 style="margin:10px 0 2px;">${escAttr(label)}</h2>
         <p class="su-hint" style="margin:0;">planet ${s.goalIdx + 1} of ${picked.length}</p>
       </div>
-      <p class="note-label">Suggestions — tap one</p>
-      <div class="su-chips" style="margin:10px 0 2px;">
-        ${ideas.map(t => `<button class="su-chip su-idea ${cur === t ? 'sel' : ''}" data-t="${escAttr(t)}">${escAttr(t)}</button>`).join('')}
-        <button class="su-chip" id="suAI">✨ More ideas</button>
-      </div>
+      <p class="note-label">Suggestions — tap to add</p>
+      ${ideas.map(t => `<button class="ics-btn su-idea" data-t="${escAttr(t)}" style="display:block;width:100%;margin:7px 0;text-align:left;${chosen.includes(t) ? 'border-color:var(--good);color:var(--good);' : ''}">${chosen.includes(t) ? '✓ ' : ''}${escAttr(t)}</button>`).join('')}
+      <button class="su-skip" id="suAI" style="margin:2px 0 0 0;">More ideas</button>
       <p class="su-hint" id="suGoalMsg" style="margin:4px 0 0;"></p>
       <div class="su-divider"><span>or</span></div>
-      <input class="fr-input" id="suGoalInput" placeholder="Write your own goal…" value="${escAttr(cur)}" maxlength="120" style="width:100%;">
+      <div class="fr-row" style="margin:0;">
+        <input class="fr-input" id="suGoalInput" placeholder="Write your own goal…" maxlength="120">
+        <button class="ics-btn" id="suGoalAdd">Add</button>
+      </div>
+      ${chosen.filter(t => !ideas.includes(t)).map(t => `<p class="su-goal-row">✓ ${escAttr(t)} <button class="su-x" data-t="${escAttr(t)}" title="Remove">✕</button></p>`).join('')}
       <div class="su-actions" style="margin-top:24px;">
         <button class="ics-btn" id="suBack">Back</button>
         <button class="ics-btn" id="suGoalNext">${s.goalIdx === picked.length - 1 ? 'Finish' : 'Next →'}</button>
@@ -2228,22 +2232,40 @@
       if (v && ![...s.picked, ...s.custom].some(x => x.toLowerCase() === v.toLowerCase())) s.custom.push(v);
       renderSetup();
     });
-    // step 3 wiring: one planet at a time
+    // step 3 wiring: one planet at a time, any number of goals
     const gInput = setupEl.querySelector('#suGoalInput');
     if (gInput){
       const picked = [...s.picked, ...s.custom];
       const label = picked[s.goalIdx];
-      gInput.addEventListener('input', () => { s.goals[label] = gInput.value; });
+      const chosen = () => (s.goals[label] = s.goals[label] || []);
       setupEl.querySelectorAll('.su-idea').forEach(ch => ch.addEventListener('click', () => {
-        s.goals[label] = ch.dataset.t;
+        const arr = chosen();
+        const ix = arr.indexOf(ch.dataset.t);
+        if (ix >= 0) arr.splice(ix, 1); else arr.push(ch.dataset.t);
+        renderSetup();
+      }));
+      const addOwn = () => {
+        const v = gInput.value.trim().slice(0, 120);
+        if (v && !chosen().includes(v)){ chosen().push(v); renderSetup(); }
+      };
+      on('#suGoalAdd', addOwn);
+      gInput.addEventListener('keydown', e => { if (e.key === 'Enter') addOwn(); });
+      setupEl.querySelectorAll('.su-x').forEach(b => b.addEventListener('click', () => {
+        const arr = chosen();
+        const ix = arr.indexOf(b.dataset.t);
+        if (ix >= 0) arr.splice(ix, 1);
         renderSetup();
       }));
       const nextPlanet = () => {
         if (s.goalIdx < picked.length - 1){ s.goalIdx++; renderSetup(); }
         else finishSetup();
       };
-      on('#suGoalNext', () => { s.goals[label] = gInput.value.trim(); nextPlanet(); });
-      on('#suGoalSkip', () => { s.goals[label] = ''; nextPlanet(); });
+      on('#suGoalNext', () => {
+        const v = gInput.value.trim().slice(0, 120); // catch un-added typed text
+        if (v && !chosen().includes(v)) chosen().push(v);
+        nextPlanet();
+      });
+      on('#suGoalSkip', () => { s.goals[label] = []; nextPlanet(); });
       on('#suSkipRest', finishSetup);
       on('#suAI', async () => {
         const btn = setupEl.querySelector('#suAI');
@@ -2255,7 +2277,7 @@
             body: JSON.stringify({
               question: 'Suggest 3 short, beginner-friendly starter goals for my "' + label + '" planet. Only that planet, nothing else.',
               config: { title: 'Brand-new solar system', areas: [{ planet: label, goals: [] }] },
-              context: (s.aboutMe || '').slice(0, 200),
+              context: '',
             }),
           });
           const data = res.ok ? await res.json().catch(() => null) : null;
@@ -2263,14 +2285,14 @@
           if (titles.length){
             s.aiIdeas[label] = titles;
             renderSetup();
-            setupEl.querySelector('#suGoalMsg').textContent = '✨ Fresh ideas — tap one, or write your own.';
+            setupEl.querySelector('#suGoalMsg').textContent = 'Fresh ideas above — tap to add.';
             return;
           }
           msg.textContent = res.status === 429
             ? 'The AI hit its hourly limit — pick a suggestion or write your own.'
             : 'The AI isn’t available right now — pick a suggestion or write your own.';
         }catch(e){ msg.textContent = 'Couldn’t reach the AI — pick a suggestion or write your own.'; }
-        btn.disabled = false; btn.textContent = '✨ More ideas';
+        btn.disabled = false; btn.textContent = 'More ideas';
       });
     }
     setupEl.querySelectorAll('.su-chip[data-label]').forEach(ch => ch.addEventListener('click', () => {
@@ -2296,8 +2318,10 @@
     const areas = SETUP_PLANETS.filter(p => s.picked.includes(p.label)).map(p => ({ label: p.label, color: p.color, goals: [] }));
     s.custom.forEach(c => areas.push({ label: c, color: PALETTE[areas.length % PALETTE.length], goals: [] }));
     areas.forEach(a => {
-      const t = (s.goals[a.label] || '').trim();
-      if (t) a.goals.push({ title: t.slice(0, 120), status: 'ongoing' }); // starter goals glow
+      (s.goals[a.label] || []).slice(0, 8).forEach(t => {
+        const tt = String(t).trim();
+        if (tt) a.goals.push({ title: tt.slice(0, 120), status: 'ongoing' }); // starter goals glow
+      });
     });
     cfg = {
       title: s.name ? s.name + "'s Life Solar System" : 'My Life Solar System',
@@ -2332,7 +2356,7 @@
       text: 'Your trophy shelf: finished goals, milestones reached, and an 8-week grid of your weekly habits (with streaks 🔥).' },
     { view: 'friends',  target: '#viewFriends',  title: 'The Friends tab',
       text: "Your system starts 🌍 public — you already have a friend code here. Swap codes with people you like and visit each other's solar systems. The 🔒 toggle makes you fully private, and checkboxes hide specific planets or goals." },
-    { view: 'system',   target: null,            title: 'All yours ✨',
+    { view: 'system',   target: null,            title: 'All yours',
       text: "That's the tour. Add a goal or two, tick your habits as the week goes, and come back anytime — everything saves itself." },
   ];
   let tourEl = null, tourIx = 0, tourTarget = null;
