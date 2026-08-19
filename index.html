@@ -476,6 +476,16 @@
     opacity:0; transform:translateX(20px); transition:opacity 300ms ease, transform 300ms ease;
   }
   .toast.show{ opacity:1; transform:none; }
+  .nudge{
+    position:fixed; left:50%; bottom:20px; transform:translate(-50%, 90px);
+    width:min(440px, calc(100vw - 32px));
+    background:var(--surface-2); border:1px solid var(--ring); border-radius:12px;
+    padding:12px 16px; z-index:59;
+    font-size:13px; color:var(--ink-secondary); line-height:1.55;
+    box-shadow:0 6px 24px rgba(0,0,0,0.5);
+    opacity:0; transition:opacity 300ms ease, transform 300ms ease;
+  }
+  .nudge.show{ opacity:1; transform:translate(-50%, 0); }
   .gkudos{ background:none; border:none; cursor:pointer; font-size:14px; padding:0 2px; vertical-align:middle; }
   .gkudos:disabled{ opacity:0.6; cursor:default; }
   .fr-wave{ padding:4px 10px; font-size:13px; margin-right:6px; }
@@ -1976,7 +1986,7 @@
     const list = (s.friends || []).map(friendCard).join('');
     el.innerHTML = `
       <p class="tl-month">Your sharing</p><div class="fr-section">${sharing}</div>
-      <p class="tl-month">Your account & backup</p><div class="fr-section">${devices}</div>
+      <p class="tl-month">Your account & backup</p><div class="fr-section" id="acctSection">${devices}</div>
       <p class="tl-month">Your friends</p>
       <div class="fr-row">
         <input class="fr-input" id="frAddCode" placeholder="Paste a friend code (e.g. sun-abc23-def45)">
@@ -2447,6 +2457,41 @@
     if (tourEl){ tourEl.remove(); tourEl = null; }
     store.set('__tourDone', true); // once is enough
     setView('system');
+    setTimeout(maybeNudgeBackup, 1200); // fresh system → suggest a backup code right away
+  }
+
+  // gentle nudge: they have real progress but no backup — one cleared browser
+  // and it's gone, so offer the account code (weekly at most, never over the
+  // wizard or tour). "lss-nudge-later" is per-device on purpose, like the code.
+  function maybeNudgeBackup(){
+    if (syncCode.get() || cloudSync.siteHasLegacy) return; // already backed up
+    if (!store.get('__config', null)) return;              // nothing to lose yet
+    if (tourEl || setupEl || document.querySelector('.nudge')) return;
+    let later = 0;
+    try{ later = +localStorage.getItem('lss-nudge-later') || 0; }catch(e){}
+    if (Date.now() - later < 7 * 86400000) return;
+    const div = document.createElement('div');
+    div.className = 'nudge';
+    div.innerHTML = `💾 <b>Back up your solar system?</b> Right now it lives only in this browser — if its data is ever cleared, everything is lost. A free account code keeps a safe copy and opens your system on your phone too.
+      <div style="margin-top:9px; display:flex; gap:10px; align-items:center;">
+        <button class="ics-btn" id="nudgeGo">Get my code</button>
+        <button class="su-skip" id="nudgeLater" style="margin:0;">Maybe later</button>
+      </div>`;
+    document.body.appendChild(div);
+    setTimeout(() => div.classList.add('show'), 30);
+    const snooze = () => { try{ localStorage.setItem('lss-nudge-later', String(Date.now())); }catch(e){} };
+    div.querySelector('#nudgeLater').addEventListener('click', () => { snooze(); div.remove(); });
+    div.querySelector('#nudgeGo').addEventListener('click', () => {
+      snooze(); // if they change their mind mid-way, ask again next week, not next load
+      div.remove();
+      setView('friends');
+      const sec = document.getElementById('acctSection');
+      if (sec){
+        sec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        sec.classList.add('tour-glow');
+        setTimeout(() => sec.classList.remove('tour-glow'), 3500);
+      }
+    });
   }
 
   function openSetup(){
@@ -2477,7 +2522,7 @@
     if (store.get('__config', null)) closeSetup(); // synced config arrived — not a new user
     if (progWrap.style.display === 'block') buildProgress();
     if (friendsWrap.style.display === 'block') buildFriends();
-  }).then(() => { socialPublish(); checkInbox(); }); // fresh hub summary + collect any waves/kudos
+  }).then(() => { socialPublish(); checkInbox(); maybeNudgeBackup(); }); // fresh hub summary + waves + backup nudge
 </script>
 </body>
 </html>
