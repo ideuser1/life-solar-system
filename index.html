@@ -836,10 +836,7 @@
     panelBody.innerHTML = '<h2>＋ New goal</h2><p class="note">Which planet does it belong to?</p>' +
       cfg.areas.map((a, i) => `<button class="ics-btn ng-p" data-i="${i}" style="display:block;width:100%;margin:8px 0;text-align:left;"><span class="fr-dot" style="background:${a.color}"></span> ${escAttr(a.label)}</button>`).join('');
     panelBody.querySelectorAll('.ng-p').forEach(b => b.addEventListener('click', () => {
-      const p = cfg.areas[+b.dataset.i];
-      openGoalEditor(p);
-      const add = panelBody.querySelector('#geAdd');
-      if (add) add.click(); // start them straight on a fresh goal card
+      openGoalForm(cfg.areas[+b.dataset.i], -1); // straight to a fresh goal card
     }));
     backdrop.classList.add('open');
     panel.classList.add('open');
@@ -1313,92 +1310,103 @@
   }
 
   function openGoalEditor(p){
+    // step 1: a calm list — pick the goal to edit (or add one)
     const goals = p.goals || [];
     panelBody.innerHTML = `
-      <h2>${p.label} — edit goals</h2>
-      <div id="geList">${goals.map((g, gi) => goalEditorCard(g, gi)).join('')}</div>
-      <button class="ics-btn" id="geAdd">+ Add goal</button>
+      <h2>${escAttr(p.label)} — goals</h2>
+      ${goals.length ? '<p class="note-label">Pick a goal to edit</p>' : '<p class="note">No goals here yet — add your first one.</p>'}
+      ${goals.map((g, gi) => {
+        const mark = g.status === 'done' ? '✓' : `<span style="color:${goalOngoing(p, g) ? 'var(--good)' : 'var(--ink-muted)'}">●</span>`;
+        return `<button class="ics-btn ge-pick" data-gi="${gi}" style="display:block;width:100%;margin:8px 0;text-align:left;">${mark} ${escAttr(g.title)}</button>`;
+      }).join('')}
+      <div class="ed-actions">
+        <button class="ics-btn" id="geNew">+ Add goal</button>
+        <button class="ics-btn" id="geBack">Done</button>
+      </div>`;
+    panelBody.querySelectorAll('.ge-pick').forEach(b => b.addEventListener('click', () => openGoalForm(p, +b.dataset.gi)));
+    panelBody.querySelector('#geNew').addEventListener('click', () => openGoalForm(p, -1));
+    panelBody.querySelector('#geBack').addEventListener('click', () => openPanel(p));
+    backdrop.classList.add('open');
+    panel.classList.add('open');
+  }
+
+  function openGoalForm(p, gi){
+    // step 2: edit exactly one goal (gi = -1 means a brand-new one)
+    const goals = p.goals || [];
+    const orig = gi >= 0 ? goals[gi] : { status: 'someday' };
+    panelBody.innerHTML = `
+      <h2>${escAttr(p.label)} — ${gi >= 0 ? 'edit goal' : 'new goal'}</h2>
+      <div id="geList">${goalEditorCard(orig, gi >= 0 ? gi : 'new')}</div>
       <div class="ed-actions">
         <button class="ics-btn" id="geSave">Save</button>
         <button class="ics-btn" id="geCancel">Cancel</button>
       </div>
-      <p class="gupdated">Ongoing = planet glows. Milestones keep their ✓ when their text stays the same. Edits sync to all your devices.</p>
-    `;
-    const list = panelBody.querySelector('#geList');
-    const wireDelete = btn => btn.addEventListener('click', () => {
-      const card = btn.closest('.ge-card');
-      const name = card.querySelector('.ge-title').value.trim() || 'this goal';
-      if (confirm('Remove "' + name + '"?')) card.remove();
-    });
+      <p class="gupdated">Ongoing = planet glows. Milestones keep their ✓ when their text stays the same. Edits sync to all your devices.</p>`;
+    const card = panelBody.querySelector('.ge-card');
+    if (gi < 0) card.querySelector('.ge-title').focus();
     // the "how many times a week?" box only matters for Weekly
-    const wireRepeat = sel => sel.addEventListener('change', () => {
-      sel.closest('.ge-card').querySelector('.ge-times-row').style.display =
-        sel.value === 'weekly' ? '' : 'none';
+    card.querySelector('.ge-repeat').addEventListener('change', e => {
+      card.querySelector('.ge-times-row').style.display = e.target.value === 'weekly' ? '' : 'none';
     });
-    list.querySelectorAll('.ge-del').forEach(wireDelete);
-    list.querySelectorAll('.ge-repeat').forEach(wireRepeat);
-    panelBody.querySelector('#geAdd').addEventListener('click', () => {
-      list.insertAdjacentHTML('beforeend', goalEditorCard({ status: 'someday' }, 'new'));
-      const card = list.lastElementChild;
-      wireDelete(card.querySelector('.ge-del'));
-      wireRepeat(card.querySelector('.ge-repeat'));
-      card.querySelector('.ge-title').focus();
-    });
-    panelBody.querySelector('#geCancel').addEventListener('click', () => openPanel(p));
-    panelBody.querySelector('#geSave').addEventListener('click', () => {
-      const cards = [...list.querySelectorAll('.ge-card')];
-      let newlyDone = false;
-      const newGoals = cards.map(card => {
-        const orig = card.dataset.gi === 'new' ? {} : (goals[+card.dataset.gi] || {});
-        const title = card.querySelector('.ge-title').value.trim();
-        if (!title) return null;
-        const g = { ...orig, title, status: card.querySelector('.ge-status').value };
-        const due = card.querySelector('.ge-due').value;
-        const note = card.querySelector('.ge-note').value.trim();
-        const rep = card.querySelector('.ge-repeat').value;
-        let pw = 0;
-        if (rep === 'daily') pw = 7;
-        else if (rep === 'weekly') pw = Math.min(14, Math.max(1, parseInt(card.querySelector('.ge-pw').value, 10) || 3));
-        if (due) g.due = due; else delete g.due;
-        if (note) g.note = note; else delete g.note;
-        if (pw > 0){
-          g.perWeek = pw;
-          // bonus circles are no longer in the editor; keep an existing bonus
-          // only while it still makes sense (must exceed the new minimum)
-          if (!(orig.perWeekMax > pw)) delete g.perWeekMax;
-        } else { delete g.perWeek; delete g.perWeekMax; }
-        const subLines = card.querySelector('.ge-subs').value.split('\n').map(s => s.trim()).filter(Boolean);
-        if (subLines.length){
-          // carry each milestone's ✓ (and its date) over by matching text;
-          // an optional " @ YYYY-MM-DD" suffix becomes the milestone's due date
-          g.subgoals = subLines.map(line => {
-            const m = line.match(/^(.*?)\s*@\s*(\d{4}-\d{2}-\d{2})\s*$/);
-            const t = (m ? m[1] : line).trim();
-            const oi = (orig.subgoals || []).findIndex(s => s.title === t);
-            const done = (oi >= 0) ? store.get(p.label + '|' + orig.title + '|sub' + oi, orig.subgoals[oi].done || false) : false;
-            const sub = { title: t };
-            if (m) sub.due = m[2];
-            if (done) sub.done = done;
-            return sub;
-          });
-        } else delete g.subgoals;
-        if (orig.title && orig.title !== title){
-          renameClickPrefix('lss:' + p.label + '|' + orig.title + '|', 'lss:' + p.label + '|' + title + '|');
-        }
-        // milestone ✓s are baked into the config now — drop the loose click keys
-        keysWithPrefix('lss:' + p.label + '|' + title + '|sub').forEach(k => localStorage.removeItem(k));
-        if (g.status === 'done' && !g.completed) g.completed = todayISO();
-        if (g.status === 'done' && orig.status !== 'done') newlyDone = true;
-        if (g.status !== 'done') delete g.completed;
-        if (JSON.stringify(g) !== JSON.stringify(orig)){
-          g.updated = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-        }
-        return g;
-      }).filter(Boolean);
-      p.goals = newGoals;
-      store.set('__config', cfg); // saves + syncs (also pushes the removed keys)
+    // the trash can deletes this goal (for a new goal it just cancels)
+    card.querySelector('.ge-del').addEventListener('click', () => {
+      if (gi < 0){ openGoalEditor(p); return; }
+      if (!confirm('Remove "' + (orig.title || 'this goal') + '"?')) return;
+      p.goals.splice(gi, 1);
+      store.set('__config', cfg);
       build();
-      openPanel(p);
+      openGoalEditor(p);
+    });
+    panelBody.querySelector('#geCancel').addEventListener('click', () => openGoalEditor(p));
+    panelBody.querySelector('#geSave').addEventListener('click', () => {
+      const title = card.querySelector('.ge-title').value.trim();
+      if (!title){ card.querySelector('.ge-title').focus(); return; }
+      const g = { ...orig, title, status: card.querySelector('.ge-status').value };
+      const due = card.querySelector('.ge-due').value;
+      const note = card.querySelector('.ge-note').value.trim();
+      const rep = card.querySelector('.ge-repeat').value;
+      let pw = 0;
+      if (rep === 'daily') pw = 7;
+      else if (rep === 'weekly') pw = Math.min(14, Math.max(1, parseInt(card.querySelector('.ge-pw').value, 10) || 3));
+      if (due) g.due = due; else delete g.due;
+      if (note) g.note = note; else delete g.note;
+      if (pw > 0){
+        g.perWeek = pw;
+        // bonus circles are no longer in the editor; keep an existing bonus
+        // only while it still makes sense (must exceed the new minimum)
+        if (!(orig.perWeekMax > pw)) delete g.perWeekMax;
+      } else { delete g.perWeek; delete g.perWeekMax; }
+      const subLines = card.querySelector('.ge-subs').value.split('\n').map(s => s.trim()).filter(Boolean);
+      if (subLines.length){
+        // carry each milestone's ✓ (and its date) over by matching text;
+        // an optional " @ YYYY-MM-DD" suffix becomes the milestone's due date
+        g.subgoals = subLines.map(line => {
+          const m = line.match(/^(.*?)\s*@\s*(\d{4}-\d{2}-\d{2})\s*$/);
+          const t = (m ? m[1] : line).trim();
+          const oi = (orig.subgoals || []).findIndex(s => s.title === t);
+          const done = (oi >= 0) ? store.get(p.label + '|' + orig.title + '|sub' + oi, orig.subgoals[oi].done || false) : false;
+          const sub = { title: t };
+          if (m) sub.due = m[2];
+          if (done) sub.done = done;
+          return sub;
+        });
+      } else delete g.subgoals;
+      if (orig.title && orig.title !== title){
+        renameClickPrefix('lss:' + p.label + '|' + orig.title + '|', 'lss:' + p.label + '|' + title + '|');
+      }
+      // milestone ✓s are baked into the config now — drop the loose click keys
+      keysWithPrefix('lss:' + p.label + '|' + title + '|sub').forEach(k => localStorage.removeItem(k));
+      if (g.status === 'done' && !g.completed) g.completed = todayISO();
+      if (g.status !== 'done') delete g.completed;
+      const newlyDone = g.status === 'done' && orig.status !== 'done';
+      if (JSON.stringify(g) !== JSON.stringify(orig)){
+        g.updated = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+      if (gi >= 0) p.goals[gi] = g;
+      else { p.goals = p.goals || []; p.goals.push(g); }
+      store.set('__config', cfg); // saves + syncs
+      build();
+      openGoalEditor(p);
       if (newlyDone) celebrate(window.innerWidth / 2, window.innerHeight * 0.35, true); // 🎉 goal finished
     });
   }
