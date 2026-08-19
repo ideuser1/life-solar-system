@@ -1763,8 +1763,25 @@
       const res = await fetch(HUB_URL + '/api/wave/' + s.code + '?key=' + s.writeKey, { cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
-      (data.items || []).slice(0, 6).forEach((it, i) => setTimeout(() => showToast(it), i * 700));
+      (data.items || []).filter(it => it.kind === 'unfriend').forEach(handleUnfriend);
+      (data.items || []).filter(it => it.kind !== 'unfriend')
+        .slice(0, 6).forEach((it, i) => setTimeout(() => showToast(it), i * 700));
     }catch(e){ /* offline — greetings will still be waiting next time */ }
+  }
+  // a friend removed us — drop them from our list too (mutual unfriending)
+  function handleUnfriend(it){
+    const code = String(it.fromCode || '');
+    if (!code) return;
+    const ns = social.get();
+    if (!(ns.friends || []).some(f => f.code === code)) return;
+    ns.friends = ns.friends.filter(f => f.code !== code);
+    social.save(ns);
+    const snaps = store.get('__friendSnaps', {});
+    delete snaps[code];
+    store.set('__friendSnaps', snaps);
+    delete friendsCache[code];
+    if (friendsWrap.style.display === 'block') buildFriends();
+    showToast({ kind: 'info', msg: 'You and ' + String(it.from || 'a friend').slice(0, 40) + ' are no longer connected.' });
   }
   // "Deleted — Undo" safety net (same toast stack as waves/kudos)
   function offerUndo(text, onUndo){
@@ -1793,11 +1810,11 @@
     const div = document.createElement('div');
     div.className = 'toast';
     const who = escAttr(String(it.from || 'A friend').slice(0, 40));
-    div.innerHTML = it.kind === 'kudos'
-      ? `🎉 <b>${who}</b> sent kudos${it.target ? ' on “' + escAttr(String(it.target).slice(0, 80)) + '”' : ''}!`
-      : `👋 <b>${who}</b> waved at you!`;
+    if (it.kind === 'info') div.innerHTML = `🍂 ${escAttr(String(it.msg || '').slice(0, 120))}`;
+    else if (it.kind === 'kudos') div.innerHTML = `🎉 <b>${who}</b> sent kudos${it.target ? ' on “' + escAttr(String(it.target).slice(0, 80)) + '”' : ''}!`;
+    else div.innerHTML = `👋 <b>${who}</b> waved at you!`;
     cont.appendChild(div);
-    celebrate(window.innerWidth - 120, 70, false);
+    if (it.kind !== 'info') celebrate(window.innerWidth - 120, 70, false);
     setTimeout(() => div.classList.add('show'), 30);
     setTimeout(() => { div.classList.remove('show'); setTimeout(() => div.remove(), 400); }, 8000);
   }
@@ -1847,7 +1864,7 @@
         <p class="fr-note" style="margin-top:14px;">Your friend code:</p>
         <span class="fr-code">${escAttr(s.code)}</span><button class="ics-btn" id="frCopy">Copy</button>
         <button class="ics-btn" id="frNewCode" title="Lock out everyone who has the old code">🔄 New code</button>
-        <p class="fr-note">Want to stop sharing with one person? Get a <b>new code</b> — the old one stops working for everyone instantly, then send the new code only to the friends you keep.</p>
+        <p class="fr-note">Removing a friend below disconnects both of you. If someone might re-add your code anyway, <b>New code</b> is the stronger option: the old code stops working for everyone, and you re-send the new one to friends you keep.</p>
         <p class="note-label" style="margin-top:18px;">What friends can see</p>
         <label class="fr-check"><input type="checkbox" id="frTitles" ${s.shareTitles ? 'checked' : ''}><b>Share goal titles</b>&nbsp;(uncheck to keep every goal private)</label>
         ${planetRows}
@@ -1977,10 +1994,16 @@
       refreshFriends();
     });
     el.querySelectorAll('.fr-del').forEach(btn => btn.addEventListener('click', () => {
-      if (!confirm('Remove this friend from your list?')) return;
+      if (!confirm('Remove this friend? You will disappear from each other\'s lists.')) return;
+      const code = btn.dataset.code;
+      sendWave(code, 'unfriend', '', null); // tell their dashboard to drop us too
       const ns = social.get();
-      ns.friends = (ns.friends || []).filter(f => f.code !== btn.dataset.code);
+      ns.friends = (ns.friends || []).filter(f => f.code !== code);
       social.save(ns);
+      const snaps = store.get('__friendSnaps', {});
+      delete snaps[code];
+      store.set('__friendSnaps', snaps);
+      delete friendsCache[code];
       buildFriends();
     }));
     el.querySelectorAll('.fr-wave').forEach(btn => btn.addEventListener('click', e => {
