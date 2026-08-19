@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
@@ -358,7 +358,7 @@
   .panel .status-row .dot{ width:9px;height:9px;border-radius:50%; background:var(--ink-muted); display:inline-block; }
   .panel .status-row.active .dot{ background:var(--good); box-shadow:0 0 8px 2px var(--good-glow); }
   .panel .status-row.active{ color:var(--good); }
-  .panel .note-label{ font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-muted); margin:0 0 4px; }
+  .panel .note-label, #assist .note-label{ font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-muted); margin:0 0 4px; }
   .panel .note{ font-size:13.5px; color:var(--ink-primary); line-height:1.5; margin:0 0 16px; }
   .panel .updated{ font-size:11.5px; color:var(--ink-muted); }
 
@@ -486,7 +486,7 @@
   .fr-visit{ margin:12px 0 0; font-size:12px; color:var(--focus); }
   #visitBar{ display:none; justify-content:center; align-items:center; margin-top:14px; }
   body.visiting #visitBar{ display:flex; }
-  body.visiting .view-toggle, body.visiting #editPlanets, body.visiting .btn-sep, body.visiting #aiIdeas, body.visiting #themeBtn, body.visiting #newGoalBtn{ display:none; }
+  body.visiting .view-toggle, body.visiting #editPlanets, body.visiting .btn-sep, body.visiting #themeBtn, body.visiting #newGoalBtn{ display:none; }
 
   /* first-run setup wizard */
   .setup-backdrop{
@@ -518,8 +518,13 @@
     color:var(--ink-muted); font-size:12px;
   }
   .su-divider::before, .su-divider::after{ content:''; flex:1; height:1px; background:var(--ring); }
-  .su-goal-row{ margin:6px 0 0; font-size:13px; color:var(--good); }
+  .su-goal-row{ margin:8px 0 0; font-size:13px; color:var(--good); display:flex; align-items:center; gap:8px; }
   .su-x{ background:none; border:none; color:#ff8fa3; cursor:pointer; font-size:12px; padding:0 4px; vertical-align:middle; }
+  .chat-u{
+    text-align:right; color:var(--ink-primary); font-size:13px;
+    background:rgba(122,162,255,0.12); border:1px solid var(--ring);
+    border-radius:10px 10px 2px 10px; padding:8px 12px; margin:10px 0 10px 48px;
+  }
 
   /* guided tour after setup */
   .tour-card{
@@ -573,8 +578,9 @@
     <button id="viewTimeline">Timeline</button>
     <button id="viewProgress">Progress</button>
     <button id="viewFriends">Friends</button>
+    <button id="viewAssist">Assistant</button>
   </div>
-  <button class="edit-btn" id="newGoalBtn">＋ New goal</button><span class="btn-sep">·</span><button class="edit-btn" id="editPlanets">✎ Edit planets</button><span class="btn-sep">·</span><button class="edit-btn" id="aiIdeas">💡 Get Ideas</button><span class="btn-sep">·</span><button class="edit-btn" id="themeBtn">🎨 Theme</button>
+  <button class="edit-btn" id="newGoalBtn">＋ New goal</button><span class="btn-sep">·</span><button class="edit-btn" id="editPlanets">✎ Edit planets</button><span class="btn-sep">·</span><button class="edit-btn" id="themeBtn">🎨 Theme</button>
   <div id="visitBar"><button class="ics-btn" id="backBtn">← Back to my system</button><button class="ics-btn" id="waveBtn">👋 Wave</button></div>
 </header>
 
@@ -591,6 +597,10 @@
 
 <div class="timeline-wrap" id="friendsWrap">
   <div id="friends"></div>
+</div>
+
+<div class="timeline-wrap" id="assistWrap">
+  <div id="assist"></div>
 </div>
 
 <footer id="pageFooter"></footer>
@@ -1183,11 +1193,14 @@
   const btnProg = document.getElementById('viewProgress');
   const friendsWrap = document.getElementById('friendsWrap');
   const btnFriends = document.getElementById('viewFriends');
+  const assistWrap = document.getElementById('assistWrap');
+  const btnAssist = document.getElementById('viewAssist');
   const views = {
     system:   { el: wrap,     btn: btnSys,  build: null },
     timeline: { el: tlWrap,   btn: btnTl,   build: buildTimeline },
     progress: { el: progWrap, btn: btnProg, build: buildProgress },
     friends:  { el: friendsWrap, btn: btnFriends, build: () => { buildFriends(); refreshFriends(); checkInbox(); } },
+    assist:   { el: assistWrap, btn: btnAssist, build: buildAssistant },
   };
   function setView(name){
     Object.entries(views).forEach(([k, v]) => {
@@ -1200,6 +1213,7 @@
   btnTl.addEventListener('click', () => setView('timeline'));
   btnProg.addEventListener('click', () => setView('progress'));
   btnFriends.addEventListener('click', () => setView('friends'));
+  btnAssist.addEventListener('click', () => setView('assist'));
 
   // .ics calendar file: one all-day event per dated goal.
   // Import it into Google Calendar — or, once the dashboard is hosted online,
@@ -1512,113 +1526,128 @@
     build();
   }
 
-  function renderSuggestions(out, data){
-    const msg = `<p class="note">${escAttr(data.message || '')}</p>`;
-    const cards = (data.suggestions || []).map((s, i) => {
-      const head = s.kind === 'planet' ? '🪐 New planet: ' + s.planet : s.title;
-      const bits = [];
-      if (s.kind !== 'planet') bits.push('Planet: ' + s.planet);
-      else if (s.title) bits.push('Starter goal: ' + s.title);
-      if (s.due) bits.push('due ' + s.due);
-      if (s.perWeek > 0) bits.push(s.perWeek + 'x/week' + (s.perWeekMax > s.perWeek ? ' (+bonus)' : ''));
-      return `<div class="ge-card">
-        <p class="gtitle">${escAttr(head)}</p>
-        ${bits.length ? `<p class="gnote">${escAttr(bits.join(' · '))}</p>` : ''}
-        ${s.note ? `<p class="gnote">${escAttr(s.note)}</p>` : ''}
-        <div class="ed-actions"><button class="ics-btn ai-add" data-i="${i}">+ Add</button></div>
-      </div>`;
-    }).join('');
-    out.innerHTML = msg + cards;
-    out.querySelectorAll('.ai-add').forEach(btn => btn.addEventListener('click', () => {
-      applySuggestion(data.suggestions[+btn.dataset.i]);
-      btn.textContent = 'Added ✓';
-      btn.disabled = true;
-    }));
-  }
-
-  function openAiPanel(){
-    panelBody.innerHTML = `
-      <h2>💡 Get Ideas</h2>
-      <p class="note">Ask for goal ideas, new planets, or feedback. The AI sees your current planets and goals.</p>
-      <div class="ai-chips">
+  // ---- Assistant tab: a running conversation with the AI about your system ----
+  let aiChat = []; // this session only: {role:'user'|'ai', text, suggestions?}
+  function buildAssistant(){
+    const el = document.getElementById('assist');
+    const ctxSaved = store.get('__aiContext', '');
+    el.innerHTML = `
+      <p class="tl-month">AI assistant</p>
+      ${aiChat.length ? '' : '<p class="fr-note">Ask about your goals, planets, or what to focus on — the assistant sees your current system, and its suggestions can be added with one tap.</p>'}
+      ${aiChat.map((m, mi) => m.role === 'user'
+        ? `<p class="chat-u">${escAttr(m.text)}</p>`
+        : `<div class="ge-card"><p class="note" style="margin:0;">${escAttr(m.text)}</p>` +
+          (m.suggestions || []).map((sg, i) => {
+            const head = sg.kind === 'planet' ? '🪐 New planet: ' + (sg.planet || '') : (sg.title || '');
+            const bits = [];
+            if (sg.kind !== 'planet') bits.push('Planet: ' + (sg.planet || ''));
+            else if (sg.title) bits.push('Starter goal: ' + sg.title);
+            if (sg.due) bits.push('due ' + sg.due);
+            if (sg.perWeek > 0) bits.push(sg.perWeek + 'x/week' + (sg.perWeekMax > sg.perWeek ? ' (+bonus)' : ''));
+            return `<div style="border-top:1px solid var(--ring);padding-top:8px;margin-top:10px;">
+              <p class="gtitle">${escAttr(head)}</p>
+              ${bits.length ? `<p class="gnote">${escAttr(bits.join(' · '))}</p>` : ''}
+              ${sg.note ? `<p class="gnote">${escAttr(sg.note)}</p>` : ''}
+              <button class="ics-btn ai-add" data-mi="${mi}" data-i="${i}" ${sg._added ? 'disabled' : ''} style="margin-top:6px;padding:5px 12px;">${sg._added ? 'Added ✓' : '+ Add'}</button>
+            </div>`;
+          }).join('') + '</div>'
+      ).join('')}
+      <div class="ai-chips" style="margin-top:14px;">
         <button class="ai-chip">Suggest goals for my planets</button>
         <button class="ai-chip">Suggest a new planet for me</button>
         <button class="ai-chip">How can I improve my current goals?</button>
       </div>
-      <textarea class="ge-subs" id="aiQ" placeholder="What do you want ideas about?"></textarea>
-      <p class="note-label" style="margin-top:14px;">About you (optional)</p>
-      <textarea class="ge-subs" id="aiCtx" placeholder="Paste anything that helps it know you — current goals, a journal entry, what your life looks like right now…">${escAttr(store.get('__aiContext', ''))}</textarea>
+      <textarea class="ge-subs" id="aiQ" placeholder="Ask anything about your system…"></textarea>
+      <div class="fr-row" style="margin:8px 0 4px; align-items:center;">
+        <button class="ics-btn" id="aiAsk">Ask</button>
+        <span class="su-hint" id="aiStatus" style="margin:0;"></span>
+      </div>
+      <p class="note-label" style="margin-top:18px;">About you (optional)</p>
+      <textarea class="ge-subs" id="aiCtx" placeholder="Paste anything that helps it know you — current goals, a journal entry, what your life looks like right now…">${escAttr(ctxSaved)}</textarea>
       <div class="fr-row" style="margin:8px 0 4px; align-items:center;">
         <input type="file" id="aiFile" accept=".txt,.md,.csv,.json,text/plain" hidden>
         <button class="ics-btn" id="aiUpload">📄 Add from a file</button>
         <span class="su-hint" id="aiCtxInfo" style="margin:0;"></span>
       </div>
-      <p class="su-hint" style="margin:0 0 10px;">Saved on your device, remembered for next time, and only sent to the AI when you press Ask. Friends never see it.</p>
-      <div class="ed-actions"><button class="ics-btn" id="aiAsk">Ask</button></div>
-      <div id="aiOut"></div>
-    `;
-    const q = panelBody.querySelector('#aiQ');
-    const out = panelBody.querySelector('#aiOut');
-    const askBtn = panelBody.querySelector('#aiAsk');
-    const ctx = panelBody.querySelector('#aiCtx');
-    const ctxInfo = panelBody.querySelector('#aiCtxInfo');
-    const fileIn = panelBody.querySelector('#aiFile');
-    panelBody.querySelector('#aiUpload').addEventListener('click', () => fileIn.click());
+      <p class="su-hint" style="margin:0 0 10px;">Saved on your device, remembered for next time, and only sent to the AI when you press Ask. Friends never see it.</p>`;
+
+    el.querySelectorAll('.ai-chip').forEach(chip => chip.addEventListener('click', () => {
+      const q = el.querySelector('#aiQ');
+      q.value = chip.textContent;
+      q.focus();
+    }));
+    el.querySelectorAll('.ai-add').forEach(btn => btn.addEventListener('click', () => {
+      const sg = aiChat[+btn.dataset.mi].suggestions[+btn.dataset.i];
+      applySuggestion(sg);
+      sg._added = true;
+      buildAssistant();
+    }));
+    el.querySelector('#aiAsk').addEventListener('click', askAssistant);
+    const ctxEl = el.querySelector('#aiCtx');
+    const ctxInfo = el.querySelector('#aiCtxInfo');
+    const fileIn = el.querySelector('#aiFile');
+    el.querySelector('#aiUpload').addEventListener('click', () => fileIn.click());
     fileIn.addEventListener('change', () => {
       const f = fileIn.files[0];
       if (!f) return;
       if (f.size > 200000){ ctxInfo.textContent = 'Too big — text files up to 200 KB.'; fileIn.value = ''; return; }
       const r = new FileReader();
       r.onload = () => {
-        const merged = (ctx.value.trim() ? ctx.value.trim() + '\n\n' : '') + '--- from ' + f.name + ' ---\n' + String(r.result);
-        ctx.value = merged.slice(0, 20000);
+        const merged = (ctxEl.value.trim() ? ctxEl.value.trim() + '\n\n' : '') + '--- from ' + f.name + ' ---\n' + String(r.result);
+        ctxEl.value = merged.slice(0, 20000);
         ctxInfo.textContent = merged.length > 20000 ? 'Added (trimmed to fit).' : 'Added ' + f.name + '.';
-        store.set('__aiContext', ctx.value);
+        store.set('__aiContext', ctxEl.value);
       };
       r.readAsText(f);
       fileIn.value = '';
     });
-    panelBody.querySelectorAll('.ai-chip').forEach(chip =>
-      chip.addEventListener('click', () => { q.value = chip.textContent; q.focus(); }));
-    askBtn.addEventListener('click', async () => {
-      if (!q.value.trim()) return;
-      askBtn.disabled = true;
-      out.innerHTML = '<p class="note">Thinking… (this can take up to a minute)</p>';
-      // send a compact view of the system as context
-      const compact = {
-        title: cfg.title,
-        areas: cfg.areas.map(a => ({
-          planet: a.label,
-          goals: (a.goals || []).map(g => ({ title: g.title, status: g.status, due: g.due, perWeek: g.perWeek })),
-        })),
-      };
-      store.set('__aiContext', ctx.value.trim()); // remember their context for next time
-      try {
-        const res = await fetch('/api/suggest', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ question: q.value.trim(), config: compact, context: ctx.value.trim().slice(0, 20000) }),
-        });
-        const data = await res.json().catch(() => null); // non-JSON = no AI endpoint on this copy
-        if (!res.ok || !data){
-          out.innerHTML = '<p class="note">' + (
-            res.status === 503 ? 'The AI isn’t set up yet — an Anthropic API key needs to be added to the site (see the project README or ask Claude).' :
-            res.status === 429 ? 'Hourly AI limit reached — try again in a bit.' :
-            !data ? 'The AI helper isn’t available on this copy — it needs its own hosted setup (see the project README). Everything else works!' :
-            'Something went wrong talking to the AI. Try again in a moment.') + '</p>';
-          return;
-        }
-        renderSuggestions(out, data);
-      } catch (e) {
-        out.innerHTML = '<p class="note">Couldn’t reach the AI — are you online? (This feature only works on the live site, not the local file.)</p>';
-      } finally {
-        askBtn.disabled = false;
-      }
-    });
-    backdrop.classList.add('open');
-    panel.classList.add('open');
   }
-  document.getElementById('aiIdeas').addEventListener('click', openAiPanel);
+
+  async function askAssistant(){
+    const el = document.getElementById('assist');
+    const q = el.querySelector('#aiQ').value.trim().slice(0, 2000);
+    if (!q) return;
+    const ctxVal = el.querySelector('#aiCtx').value.trim().slice(0, 20000);
+    store.set('__aiContext', ctxVal); // remember their context for next time
+    aiChat.push({ role: 'user', text: q });
+    buildAssistant();
+    const status = document.getElementById('aiStatus');
+    const askBtn = document.getElementById('aiAsk');
+    if (status) status.textContent = 'Thinking… (can take up to a minute)';
+    if (askBtn) askBtn.disabled = true;
+    const compact = {
+      title: cfg.title,
+      areas: cfg.areas.map(a => ({
+        planet: a.label,
+        goals: (a.goals || []).map(g => ({ title: g.title, status: g.status, due: g.due, perWeek: g.perWeek })),
+      })),
+    };
+    const convo = aiChat.slice(-7, -1).map(m => (m.role === 'user' ? 'Me: ' : 'Assistant: ') + m.text).join('\n');
+    try{
+      const res = await fetch('/api/suggest', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          question: q,
+          config: compact,
+          context: (ctxVal + (convo ? '\n\nRecent conversation:\n' + convo : '')).slice(0, 20000),
+        }),
+      });
+      const data = res.ok ? await res.json().catch(() => null) : null;
+      if (data && typeof data.message === 'string'){
+        aiChat.push({ role: 'ai', text: data.message, suggestions: data.suggestions || [] });
+      } else {
+        aiChat.push({ role: 'ai', text:
+          res && res.status === 503 ? 'The AI isn’t set up on this copy yet — an Anthropic API key needs to be added to the site (see the project README).' :
+          res && res.status === 429 ? 'Hourly AI limit reached — try again in a bit.' :
+          'Something went wrong talking to the AI — try again in a moment.' });
+      }
+    }catch(e){
+      aiChat.push({ role: 'ai', text: 'Couldn’t reach the AI — are you online? (This needs a hosted copy, not the local file.)' });
+    }
+    aiChat = aiChat.slice(-20); // keep the conversation light
+    buildAssistant();
+  }
 
   // ---- themes: alternate skies, synced like everything else ----
   const THEMES = [
@@ -2140,20 +2169,21 @@
     { label: 'Home',    color: '#d9b26a', hint: 'your space, life admin' },
     { label: 'Purpose', color: '#b9a7f0', hint: 'meaning, giving back' },
   ];
-  // instant starter-goal ideas per standard planet (AI adds personalized ones)
+  // instant starter-goal ideas per standard planet — SMART/trackable, and
+  // repeatable ones carry pw (times per week) so the tick circles come set up
   const GOAL_IDEAS = {
-    Work:    ['Update my resume', 'Ask for feedback from my manager', 'Finish one lingering project'],
-    School:  ['Stay on top of assignments this term', 'Study 3x a week', 'Go to office hours once'],
-    Money:   ['Save $500', 'Track my spending for a month', 'Set up automatic savings'],
-    Body:    ['Exercise 3x a week', 'Sleep 8 hours a night', 'Drink more water every day'],
-    Mind:    ['Journal once a week', 'Meditate 10 minutes a day', 'One screen-free evening a week'],
-    People:  ['Call family once a week', 'Plan a hangout this month', 'Reconnect with an old friend'],
-    Growth:  ['Read 10 pages a day', 'Learn one new skill', 'Finish an online course'],
-    Play:    ['One small adventure a month', 'Pick an old hobby back up', 'Host a game night'],
-    Home:    ['Declutter one drawer a week', 'Make my space cozier', 'Cook at home more often'],
-    Purpose: ['Volunteer once this quarter', 'Write down what matters most to me', 'One act of kindness a week'],
+    Work:    [{ t: 'Do 30 minutes of career work, 3x a week', pw: 3 }, { t: 'Send my updated resume to 5 people' }, { t: 'Finish one lingering project by month-end' }],
+    School:  [{ t: 'Study 3x a week', pw: 3 }, { t: 'Review notes 20 minutes, 5x a week', pw: 5 }, { t: 'Go to office hours once this month' }],
+    Money:   [{ t: 'Save $500' }, { t: 'Log every expense, daily', pw: 7 }, { t: 'Cook instead of ordering out, 4x a week', pw: 4 }],
+    Body:    [{ t: 'Exercise 3x a week', pw: 3 }, { t: 'Walk 8,000 steps a day', pw: 7 }, { t: 'Sleep 8 hours, 5 nights a week', pw: 5 }],
+    Mind:    [{ t: 'Journal 2x a week', pw: 2 }, { t: 'Meditate 10 minutes a day', pw: 7 }, { t: 'One screen-free evening a week', pw: 1 }],
+    People:  [{ t: 'Call family once a week', pw: 1 }, { t: 'Message one old friend each week', pw: 1 }, { t: 'Plan one hangout this month' }],
+    Growth:  [{ t: 'Read 10 pages a day', pw: 7 }, { t: 'Practice a new skill 3x a week', pw: 3 }, { t: 'Finish one online course this quarter' }],
+    Play:    [{ t: 'Hobby time 2x a week', pw: 2 }, { t: 'One small adventure each month' }, { t: 'Host one game night this month' }],
+    Home:    [{ t: 'Declutter one drawer a week', pw: 1 }, { t: '15-minute tidy, 5x a week', pw: 5 }, { t: 'Cook at home 4x a week', pw: 4 }],
+    Purpose: [{ t: 'One act of kindness a week', pw: 1 }, { t: 'Volunteer once this month' }, { t: 'Write a 5-minute reflection, 3x a week', pw: 3 }],
   };
-  const GENERIC_IDEAS = ['Set one small weekly habit', 'Write down what success looks like here', 'Take the first tiny step this week'];
+  const GENERIC_IDEAS = [{ t: 'Spend 15 focused minutes here, 3x a week', pw: 3 }, { t: 'Write one measurable goal for this area' }, { t: 'Take one concrete step this week' }];
   let setupEl = null;
   const setupState = { step: 1, name: '', picked: [], custom: [], goals: {}, aboutMe: '', goalIdx: 0, aiIdeas: {}, footer: '' };
 
@@ -2189,7 +2219,10 @@
         <p class="su-hint" style="margin:0;">planet ${s.goalIdx + 1} of ${picked.length}</p>
       </div>
       <p class="note-label">Suggestions — tap to add</p>
-      ${ideas.map(t => `<button class="ics-btn su-idea" data-t="${escAttr(t)}" style="display:block;width:100%;margin:7px 0;text-align:left;${chosen.includes(t) ? 'border-color:var(--good);color:var(--good);' : ''}">${chosen.includes(t) ? '✓ ' : ''}${escAttr(t)}</button>`).join('')}
+      ${ideas.map(idea => {
+        const on = chosen.some(g => g.title === idea.t);
+        return `<button class="ics-btn su-idea" data-t="${escAttr(idea.t)}" style="display:block;width:100%;margin:7px 0;text-align:left;${on ? 'border-color:var(--good);color:var(--good);' : ''}">${on ? '✓ ' : ''}${escAttr(idea.t)}</button>`;
+      }).join('')}
       <button class="su-skip" id="suAI" style="margin:2px 0 0 0;">More ideas</button>
       <p class="su-hint" id="suGoalMsg" style="margin:4px 0 0;"></p>
       <div class="su-divider"><span>or</span></div>
@@ -2197,7 +2230,8 @@
         <input class="fr-input" id="suGoalInput" placeholder="Write your own goal…" maxlength="120">
         <button class="ics-btn" id="suGoalAdd">Add</button>
       </div>
-      ${chosen.filter(t => !ideas.includes(t)).map(t => `<p class="su-goal-row">✓ ${escAttr(t)} <button class="su-x" data-t="${escAttr(t)}" title="Remove">${TRASH_SVG}</button></p>`).join('')}
+      ${chosen.length ? `<p class="note-label" style="margin-top:16px;">Your goals for ${escAttr(label)} — add a deadline if it has one</p>` : ''}
+      ${chosen.map(g => `<div class="su-goal-row"><span style="flex:1;">✓ ${escAttr(g.title)}</span><input type="date" class="ed-name ge-due su-due" data-t="${escAttr(g.title)}" value="${g.due || ''}" title="Due date (optional)" style="width:150px;flex:none;"><button class="su-x" data-t="${escAttr(g.title)}" title="Remove">${TRASH_SVG}</button></div>`).join('')}
       <div class="su-actions" style="margin-top:24px;">
         <button class="ics-btn" id="suBack">Back</button>
         <button class="ics-btn" id="suGoalNext">${s.goalIdx === picked.length - 1 ? 'Finish' : 'Next →'}</button>
@@ -2238,23 +2272,32 @@
       const picked = [...s.picked, ...s.custom];
       const label = picked[s.goalIdx];
       const chosen = () => (s.goals[label] = s.goals[label] || []);
+      const ideas = s.aiIdeas[label] || GOAL_IDEAS[label] || GENERIC_IDEAS;
       setupEl.querySelectorAll('.su-idea').forEach(ch => ch.addEventListener('click', () => {
         const arr = chosen();
-        const ix = arr.indexOf(ch.dataset.t);
-        if (ix >= 0) arr.splice(ix, 1); else arr.push(ch.dataset.t);
+        const ix = arr.findIndex(g => g.title === ch.dataset.t);
+        if (ix >= 0) arr.splice(ix, 1);
+        else {
+          const idea = ideas.find(i => i.t === ch.dataset.t) || {};
+          arr.push({ title: ch.dataset.t, pw: idea.pw || 0, pwm: idea.pwm || 0, due: idea.due || '' });
+        }
         renderSetup();
       }));
       const addOwn = () => {
         const v = gInput.value.trim().slice(0, 120);
-        if (v && !chosen().includes(v)){ chosen().push(v); renderSetup(); }
+        if (v && !chosen().some(g => g.title === v)){ chosen().push({ title: v }); renderSetup(); }
       };
       on('#suGoalAdd', addOwn);
       gInput.addEventListener('keydown', e => { if (e.key === 'Enter') addOwn(); });
       setupEl.querySelectorAll('.su-x').forEach(b => b.addEventListener('click', () => {
         const arr = chosen();
-        const ix = arr.indexOf(b.dataset.t);
+        const ix = arr.findIndex(g => g.title === b.dataset.t);
         if (ix >= 0) arr.splice(ix, 1);
         renderSetup();
+      }));
+      setupEl.querySelectorAll('.su-due').forEach(inp => inp.addEventListener('change', () => {
+        const g = chosen().find(x => x.title === inp.dataset.t);
+        if (g) g.due = inp.value;
       }));
       const nextPlanet = () => {
         if (s.goalIdx < picked.length - 1){ s.goalIdx++; renderSetup(); }
@@ -2262,7 +2305,7 @@
       };
       on('#suGoalNext', () => {
         const v = gInput.value.trim().slice(0, 120); // catch un-added typed text
-        if (v && !chosen().includes(v)) chosen().push(v);
+        if (v && !chosen().some(g => g.title === v)) chosen().push({ title: v });
         nextPlanet();
       });
       on('#suGoalSkip', () => { s.goals[label] = []; nextPlanet(); });
@@ -2275,13 +2318,15 @@
           const res = await fetch('/api/suggest', {
             method: 'POST', headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
-              question: 'Suggest 3 short, beginner-friendly starter goals for my "' + label + '" planet. Only that planet, nothing else.',
+              question: 'Suggest 3 SMART starter goals for my "' + label + '" planet — each must be specific and measurable/trackable (a number, a count per week, or a deadline). Only that planet, nothing else.',
               config: { title: 'Brand-new solar system', areas: [{ planet: label, goals: [] }] },
               context: '',
             }),
           });
           const data = res.ok ? await res.json().catch(() => null) : null;
-          const titles = ((data && data.suggestions) || []).map(x => String(x.title || '').slice(0, 120)).filter(Boolean).slice(0, 4);
+          const titles = ((data && data.suggestions) || [])
+            .map(x => ({ t: String(x.title || '').slice(0, 120), pw: x.perWeek > 0 ? x.perWeek : 0, pwm: x.perWeekMax > 0 ? x.perWeekMax : 0, due: x.due || '' }))
+            .filter(x => x.t).slice(0, 4);
           if (titles.length){
             s.aiIdeas[label] = titles;
             renderSetup();
@@ -2318,9 +2363,16 @@
     const areas = SETUP_PLANETS.filter(p => s.picked.includes(p.label)).map(p => ({ label: p.label, color: p.color, goals: [] }));
     s.custom.forEach(c => areas.push({ label: c, color: PALETTE[areas.length % PALETTE.length], goals: [] }));
     areas.forEach(a => {
-      (s.goals[a.label] || []).slice(0, 8).forEach(t => {
-        const tt = String(t).trim();
-        if (tt) a.goals.push({ title: tt.slice(0, 120), status: 'ongoing' }); // starter goals glow
+      (s.goals[a.label] || []).slice(0, 8).forEach(g => {
+        const tt = String(g.title || '').trim();
+        if (!tt) return;
+        const goal = { title: tt.slice(0, 120), status: 'ongoing' }; // starter goals glow
+        if (g.pw > 0){
+          goal.perWeek = Math.min(14, g.pw); // repeatable suggestions arrive pre-set
+          if (g.pwm > g.pw) goal.perWeekMax = Math.min(14, g.pwm);
+        }
+        if (g.due) goal.due = g.due;
+        a.goals.push(goal);
       });
     });
     cfg = {
@@ -2356,6 +2408,8 @@
       text: 'Your trophy shelf: finished goals, milestones reached, and an 8-week grid of your weekly habits (with streaks 🔥).' },
     { view: 'friends',  target: '#viewFriends',  title: 'The Friends tab',
       text: "Your system starts 🌍 public — you already have a friend code here. Swap codes with people you like and visit each other's solar systems. The 🔒 toggle makes you fully private, and checkboxes hide specific planets or goals." },
+    { view: 'assist',   target: '#viewAssist',   title: 'The Assistant tab',
+      text: 'Chat with an AI that can see your solar system. Ask it for goal ideas, a new planet, or how to sharpen what you have — anything it suggests can be added with one tap.' },
     { view: 'system',   target: null,            title: 'All yours',
       text: "That's the tour. Add a goal or two, tick your habits as the week goes, and come back anytime — everything saves itself." },
   ];

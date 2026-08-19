@@ -114,15 +114,16 @@ Notes:
   `https://YOUR-SITE/life-goals.ics`. Re-run + redeploy whenever due dates
   change.
 
-### AI suggestions button (optional, hosted only)
+### AI Assistant tab (optional, hosted only)
 
-The **✨ Get Ideas** button asks Claude (an AI) for goal suggestions tailored
-to your system. It only works on a hosted copy, and needs your own Anthropic
-API key: in the Cloudflare dashboard, open your Pages project → Settings →
-Variables and Secrets, add a secret named `ANTHROPIC_API_KEY`, and redeploy.
-API usage costs a small amount per question; the endpoint is limited to 20
-questions per hour. Until the key is set, the button simply explains it's not
-configured.
+The **Assistant** tab is a chat with Claude (an AI) that can see your solar
+system: ask for goal ideas, a new planet, or feedback on your goals, and add
+any suggestion with one tap. It only works on a hosted copy, and needs your
+own Anthropic API key: in the Cloudflare dashboard, open your Pages project →
+Settings → Variables and Secrets, add a secret named `ANTHROPIC_API_KEY`, and
+redeploy. API usage costs a small amount per question; the endpoint is
+limited to 20 questions per hour. Until the key is set, the tab simply
+explains it's not configured.
 
 ## Good to know
 
