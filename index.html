@@ -486,7 +486,7 @@
   .fr-visit{ margin:12px 0 0; font-size:12px; color:var(--focus); }
   #visitBar{ display:none; justify-content:center; align-items:center; margin-top:14px; }
   body.visiting #visitBar{ display:flex; }
-  body.visiting .view-toggle, body.visiting #editPlanets, body.visiting .btn-sep, body.visiting #aiIdeas, body.visiting #themeBtn, body.visiting #newGoalBtn, body.visiting #postcardBtn{ display:none; }
+  body.visiting .view-toggle, body.visiting #editPlanets, body.visiting .btn-sep, body.visiting #aiIdeas, body.visiting #themeBtn, body.visiting #newGoalBtn{ display:none; }
 
   /* first-run setup wizard */
   .setup-backdrop{
@@ -566,7 +566,7 @@
     <button id="viewProgress">Progress</button>
     <button id="viewFriends">Friends</button>
   </div>
-  <button class="edit-btn" id="newGoalBtn">＋ New goal</button><span class="btn-sep">·</span><button class="edit-btn" id="editPlanets">✎ Edit planets</button><span class="btn-sep">·</span><button class="edit-btn" id="aiIdeas">💡 Get Ideas</button><span class="btn-sep">·</span><button class="edit-btn" id="themeBtn">🎨 Theme</button><span class="btn-sep">·</span><button class="edit-btn" id="postcardBtn">📮 Postcard</button>
+  <button class="edit-btn" id="newGoalBtn">＋ New goal</button><span class="btn-sep">·</span><button class="edit-btn" id="editPlanets">✎ Edit planets</button><span class="btn-sep">·</span><button class="edit-btn" id="aiIdeas">💡 Get Ideas</button><span class="btn-sep">·</span><button class="edit-btn" id="themeBtn">🎨 Theme</button>
   <div id="visitBar"><button class="ics-btn" id="backBtn">← Back to my system</button><button class="ics-btn" id="waveBtn">👋 Wave</button></div>
 </header>
 
@@ -1621,78 +1621,6 @@
   document.getElementById('themeBtn').addEventListener('click', openThemePanel);
   applyTheme();
 
-  // ---- postcard: render the solar system to an image and download it ----
-  function makePostcard(){
-    const S = 1080;
-    const cv = document.createElement('canvas');
-    cv.width = S; cv.height = S;
-    const ctx = cv.getContext('2d');
-    const css = getComputedStyle(document.documentElement);
-    const surface = css.getPropertyValue('--surface').trim() || '#0b0f1e';
-    const neb1 = css.getPropertyValue('--neb1').trim() || '#141b3d';
-    const neb2 = css.getPropertyValue('--neb2').trim() || '#151032';
-    ctx.fillStyle = surface; ctx.fillRect(0, 0, S, S);
-    let ng = ctx.createRadialGradient(S * 0.2, S * 0.12, 0, S * 0.2, S * 0.12, S * 0.5);
-    ng.addColorStop(0, neb1); ng.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = ng; ctx.fillRect(0, 0, S, S);
-    ng = ctx.createRadialGradient(S * 0.8, S * 0.9, 0, S * 0.8, S * 0.9, S * 0.55);
-    ng.addColorStop(0, neb2); ng.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = ng; ctx.fillRect(0, 0, S, S);
-    for (let i = 0; i < 140; i++){
-      ctx.fillStyle = 'rgba(255,255,255,' + (0.12 + Math.random() * 0.45).toFixed(2) + ')';
-      ctx.beginPath();
-      ctx.arc(Math.random() * S, Math.random() * S, Math.random() < 0.85 ? 1 : 2, 0, 7);
-      ctx.fill();
-    }
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#eef1fb';
-    ctx.font = '600 44px "Segoe UI", sans-serif';
-    ctx.fillText(cfg.title || 'My Life Solar System', S / 2, 92);
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.font = '24px "Segoe UI", sans-serif';
-    ctx.fillText(new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }), S / 2, 134);
-    const cx = S / 2, cy = S / 2 + 40;
-    const n = cfg.areas.length || 1;
-    const rMin = 150, rMax = 420;
-    const sunG = ctx.createRadialGradient(cx - 12, cy - 12, 5, cx, cy, 60);
-    sunG.addColorStop(0, '#ffe9a8'); sunG.addColorStop(0.55, '#ffb648'); sunG.addColorStop(1, '#ff8a3d');
-    ctx.shadowColor = 'rgba(255,171,64,0.6)'; ctx.shadowBlur = 60;
-    ctx.fillStyle = sunG;
-    ctx.beginPath(); ctx.arc(cx, cy, 56, 0, 7); ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = 'rgba(255,255,255,0.8)';
-    ctx.font = '22px "Segoe UI", sans-serif';
-    ctx.fillText(cfg.sunLabel || 'Me', cx, cy + 96);
-    const gcd = (a, b) => b ? gcd(b, a % b) : a;
-    let stride = Math.max(1, Math.round(n / 2));
-    while (n > 1 && gcd(stride, n) !== 1) stride--;
-    cfg.areas.forEach((p, i) => {
-      const r = (n === 1) ? rMax : rMin + (rMax - rMin) * (i / (n - 1));
-      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke();
-      const ang = (270 + (360 / n) * ((i * stride) % n)) * Math.PI / 180;
-      const x = cx + r * Math.cos(ang), y = cy + r * Math.sin(ang);
-      const size = 16 + Math.min((p.goals || []).length, 5) * 2;
-      if (isActive(p)){ ctx.shadowColor = 'rgba(62,207,142,0.8)'; ctx.shadowBlur = 28; }
-      else { ctx.shadowColor = 'rgba(255,255,255,0.35)'; ctx.shadowBlur = 12; }
-      const pg = ctx.createRadialGradient(x - size / 4, y - size / 4, 2, x, y, size);
-      pg.addColorStop(0, shade(p.color, 25)); pg.addColorStop(1, shade(p.color, -15));
-      ctx.fillStyle = pg;
-      ctx.beginPath(); ctx.arc(x, y, size, 0, 7); ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = '#eef1fb';
-      ctx.font = '600 22px "Segoe UI", sans-serif';
-      ctx.fillText(p.label, x, y + size + 26);
-    });
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.font = '20px "Segoe UI", sans-serif';
-    ctx.fillText('life-solar-system.pages.dev', S / 2, S - 36);
-    const a = document.createElement('a');
-    a.download = 'my-solar-system.png';
-    a.href = cv.toDataURL('image/png');
-    a.click();
-  }
-  document.getElementById('postcardBtn').addEventListener('click', makePostcard);
 
   // ---- friends: publish a privacy-filtered summary to the hub; follow codes ----
   // The hub is a separate tiny site: it stores, per friend code, ONLY the
