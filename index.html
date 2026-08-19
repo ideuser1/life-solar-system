@@ -138,11 +138,6 @@
     border:1px solid var(--ring);
     border-radius:50%;
     transform:translate(-50%,-50%);
-    transition:border-color 200ms ease, box-shadow 200ms ease;
-  }
-  .orbit.lit{ /* hovering a planet lights up its orbit */
-    border-color:rgba(255,255,255,0.35);
-    box-shadow:0 0 12px rgba(255,255,255,0.08), inset 0 0 12px rgba(255,255,255,0.08);
   }
   .sun{
     position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
@@ -822,8 +817,6 @@
       btn.appendChild(labelDiv);
       btn.appendChild(statusDiv);
       btn.addEventListener('click', () => openPanel(p));
-      btn.addEventListener('mouseenter', () => orbitEl.classList.add('lit'));
-      btn.addEventListener('mouseleave', () => orbitEl.classList.remove('lit'));
       areaEls[i] = { btn, planetDiv, statusDiv };
 
       wrap.appendChild(btn);
