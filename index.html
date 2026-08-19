@@ -1231,7 +1231,10 @@
   function openEditor(){
     panelBody.innerHTML = `
       <h2>Edit planets</h2>
-      <p class="note-label">Name & color</p>
+      <p class="note-label">You</p>
+      <label class="ge-field">Your name (shown on the sun)<input class="ed-name" id="edSun" value="${escAttr(cfg.sunLabel || 'Me')}" maxlength="30" style="width:100%;"></label>
+      <label class="ge-field">Dashboard title<input class="ed-name" id="edTitle" value="${escAttr(cfg.title || '')}" maxlength="60" style="width:100%;"></label>
+      <p class="note-label" style="margin-top:16px;">Planets — name & color</p>
       <div id="edRows">${cfg.areas.map((a, i) => editorRow(a.label, a.color, i)).join('')}</div>
       <button class="ics-btn" id="edAdd">+ Add planet</button>
       <div class="ed-actions">
@@ -1258,21 +1261,34 @@
     panelBody.querySelector('#edSave').addEventListener('click', () => {
       const rows = [...rowsEl.querySelectorAll('.ed-row')];
       const seen = new Set();
+      const keptIdx = new Set();
       const areas = rows.map(row => {
         const label = row.querySelector('.ed-name').value.trim();
         const color = row.querySelector('.ed-color').value;
         if (!label || seen.has(label)) return null;
         seen.add(label);
         const orig = row.dataset.i === 'new' ? null : cfg.areas[+row.dataset.i];
+        if (orig) keptIdx.add(+row.dataset.i);
         if (orig && orig.label !== label){ renameClickKeys(orig.label, label); socialRenamePlanet(orig.label, label); }
         return orig ? { ...orig, label, color } : { label, color, goals: [] };
       }).filter(Boolean);
       if (!areas.length){ alert('Keep at least one planet.'); return; }
-      cfg = { ...cfg, areas };
+      const removed = cfg.areas.filter((a, idx) => !keptIdx.has(idx));
+      const newSun = (panelBody.querySelector('#edSun').value.trim() || 'Me').slice(0, 30);
+      const newTitle = (panelBody.querySelector('#edTitle').value.trim() || (newSun + "'s Life Solar System")).slice(0, 60);
+      cfg = { ...cfg, sunLabel: newSun, title: newTitle, areas };
       store.set('__config', cfg); // saves locally + syncs to the cloud
       setHeaderText();
       build();
       closePanel();
+      if (removed.length){
+        offerUndo('Removed ' + removed.map(a => a.label).join(', '), () => {
+          cfg.areas.push(...removed);
+          store.set('__config', cfg);
+          setHeaderText();
+          build();
+        });
+      }
     });
     backdrop.classList.add('open');
     panel.classList.add('open');
@@ -1352,10 +1368,17 @@
     card.querySelector('.ge-del').addEventListener('click', () => {
       if (gi < 0){ openGoalEditor(p); return; }
       if (!confirm('Remove "' + (orig.title || 'this goal') + '"?')) return;
+      const removedGoal = p.goals[gi];
       p.goals.splice(gi, 1);
       store.set('__config', cfg);
       build();
       openGoalEditor(p);
+      offerUndo('Deleted "' + removedGoal.title + '"', () => {
+        p.goals.splice(Math.min(gi, p.goals.length), 0, removedGoal);
+        store.set('__config', cfg);
+        build();
+        if (panel.classList.contains('open')) openGoalEditor(p);
+      });
     });
     panelBody.querySelector('#geCancel').addEventListener('click', () => openGoalEditor(p));
     panelBody.querySelector('#geSave').addEventListener('click', () => {
@@ -1743,6 +1766,23 @@
       (data.items || []).slice(0, 6).forEach((it, i) => setTimeout(() => showToast(it), i * 700));
     }catch(e){ /* offline — greetings will still be waiting next time */ }
   }
+  // "Deleted — Undo" safety net (same toast stack as waves/kudos)
+  function offerUndo(text, onUndo){
+    let cont = document.getElementById('toasts');
+    if (!cont){
+      cont = document.createElement('div');
+      cont.id = 'toasts';
+      document.body.appendChild(cont);
+    }
+    const div = document.createElement('div');
+    div.className = 'toast';
+    div.innerHTML = `${escAttr(text.slice(0, 90))} <button class="ics-btn" style="margin-left:8px;padding:4px 12px;">Undo</button>`;
+    div.querySelector('button').addEventListener('click', () => { onUndo(); div.remove(); });
+    cont.appendChild(div);
+    setTimeout(() => div.classList.add('show'), 30);
+    setTimeout(() => { div.classList.remove('show'); setTimeout(() => div.remove(), 400); }, 8000);
+  }
+
   function showToast(it){
     let cont = document.getElementById('toasts');
     if (!cont){
@@ -1806,6 +1846,8 @@
         ${banner}
         <p class="fr-note" style="margin-top:14px;">Your friend code:</p>
         <span class="fr-code">${escAttr(s.code)}</span><button class="ics-btn" id="frCopy">Copy</button>
+        <button class="ics-btn" id="frNewCode" title="Lock out everyone who has the old code">🔄 New code</button>
+        <p class="fr-note">Want to stop sharing with one person? Get a <b>new code</b> — the old one stops working for everyone instantly, then send the new code only to the friends you keep.</p>
         <p class="note-label" style="margin-top:18px;">What friends can see</p>
         <label class="fr-check"><input type="checkbox" id="frTitles" ${s.shareTitles ? 'checked' : ''}><b>Share goal titles</b>&nbsp;(uncheck to keep every goal private)</label>
         ${planetRows}
@@ -1816,23 +1858,23 @@
     let devices;
     if (sc){
       devices = `
-        <p class="fr-note">This dashboard syncs across your devices. On your phone or another computer, open this site, come to the Friends tab, and enter this <b>sync code</b> — it becomes the same dashboard. <b>Treat it like a password:</b> anyone who has it can see and change everything.</p>
+        <p class="fr-note">This is your <b>account code</b> — no login, no password, this code IS your account. Type it on any device or browser and your whole dashboard appears there. It's also your <b>backup</b>: even if this browser's data is wiped, the code brings everything back. <b>Treat it like a password</b> — anyone who has it can see and change everything.</p>
         <span class="fr-code">${escAttr(sc)}</span><button class="ics-btn" id="syCopy">Copy</button>
-        <div class="ed-actions"><button class="ics-btn" id="syStop">Stop syncing this device</button></div>`;
+        <div class="ed-actions"><button class="ics-btn" id="syStop">Disconnect this device</button></div>`;
     } else if (cloudSync.siteHasLegacy){
-      devices = `<p class="fr-note">This copy already syncs on its own — just open this same website address on your other devices (and "Add to Home Screen" on your phone makes it an app). No sync code needed.</p>`;
+      devices = `<p class="fr-note">This copy already syncs and backs itself up on its own — just open this same website address on your other devices ("Add to Home Screen" on your phone makes it an app). No code needed.</p>`;
     } else {
       devices = `
-        <p class="fr-note">Right now this dashboard lives only in this browser. Turn on sync to use it on your phone and computer together — you'll get a private <b>sync code</b> (treat it like a password) to type once on your other device.</p>
-        <div class="ed-actions"><button class="ics-btn" id="syStart">Sync my devices</button></div>
-        <div class="fr-row"><input class="fr-input" id="syCode" placeholder="Already have a sync code? Enter it here"><button class="ics-btn" id="syConnect">Connect</button></div>
+        <p class="fr-note">Right now this dashboard lives only in this browser — if the browser's data is ever cleared, it's gone. Turn on backup to get a private <b>account code</b> (no signup, no password): it keeps a copy safe in the cloud and opens your dashboard on any device you type it into.</p>
+        <div class="ed-actions"><button class="ics-btn" id="syStart">Turn on backup & sync</button></div>
+        <div class="fr-row"><input class="fr-input" id="syCode" placeholder="Already have an account code? Enter it here"><button class="ics-btn" id="syConnect">Connect</button></div>
         <p class="fr-err" id="syErr" style="display:none;"></p>`;
     }
 
     const list = (s.friends || []).map(friendCard).join('');
     el.innerHTML = `
       <p class="tl-month">Your sharing</p><div class="fr-section">${sharing}</div>
-      <p class="tl-month">Your devices</p><div class="fr-section">${devices}</div>
+      <p class="tl-month">Your account & backup</p><div class="fr-section">${devices}</div>
       <p class="tl-month">Your friends</p>
       <div class="fr-row">
         <input class="fr-input" id="frAddCode" placeholder="Paste a friend code (e.g. sun-abc23-def45)">
@@ -1864,6 +1906,15 @@
       if (navigator.clipboard) navigator.clipboard.writeText(social.get().code);
       el.querySelector('#frCopy').textContent = 'Copied ✓';
     });
+    on('#frNewCode', 'click', () => {
+      if (!confirm('Get a new friend code? Everyone with your old code loses access immediately. Send the new code to the friends you want to keep.')) return;
+      const ns = social.get();
+      social.unpublish({ code: ns.code, writeKey: ns.writeKey }); // old code dies now
+      ns.code = social.randomCode();
+      ns.writeKey = social.randomKey();
+      social.save(ns); // re-publishes under the new code
+      buildFriends();
+    });
     on('#syStart', 'click', () => {
       syncCode.set(syncCode.gen());
       cloudSync.push(); // seed the cloud copy from this device
@@ -1874,7 +1925,7 @@
       el.querySelector('#syCopy').textContent = 'Copied ✓';
     });
     on('#syStop', 'click', () => {
-      if (!confirm('Stop syncing on this device? Your data stays here and in the cloud copy — this device just disconnects from it.')) return;
+      if (!confirm('Disconnect this device from your account code? Your data stays here and in the cloud backup — this device just stops updating it.')) return;
       syncCode.set('');
       buildFriends();
     });
