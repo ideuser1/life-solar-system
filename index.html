@@ -512,6 +512,12 @@
   .su-skip{ background:none; border:none; color:var(--ink-muted); font-size:12px; cursor:pointer; margin-left:auto; }
   .su-skip:hover{ color:var(--ink-primary); }
   .su-hint{ font-size:11.5px; color:var(--ink-muted); margin:8px 0 0; }
+  .su-planet{ width:44px; height:44px; border-radius:50%; display:inline-block; }
+  .su-divider{
+    display:flex; align-items:center; gap:10px; margin:18px 0 12px;
+    color:var(--ink-muted); font-size:12px;
+  }
+  .su-divider::before, .su-divider::after{ content:''; flex:1; height:1px; background:var(--ring); }
 
   /* guided tour after setup */
   .tour-card{
@@ -2168,26 +2174,31 @@
       <div class="fr-row" style="margin:8px 0 0;"><input class="fr-input" id="suCustom" placeholder="Add your own planet…" maxlength="24"><button class="ics-btn" id="suAddCustom">Add</button></div>
       <p class="su-hint" id="suCount"></p>
       <div class="su-actions"><button class="ics-btn" id="suBack">Back</button><button class="ics-btn" id="suNext">Next</button><button class="su-skip" id="suSkip">Skip setup</button></div>`;
-    // step 3: one planet at a time — pick a suggestion, write your own, or skip
+    // step 3: one planet at a time — a clear planet header, suggestions, or your own
     const picked = [...s.picked, ...s.custom];
     const label = picked[s.goalIdx] || '';
     const ideas = s.aiIdeas[label] || GOAL_IDEAS[label] || GENERIC_IDEAS;
     const cur = s.goals[label] || '';
+    const pColor = (SETUP_PLANETS.find(x => x.label === label) || {}).color || PALETTE[s.goalIdx % PALETTE.length];
     return `
-      <h2>${escAttr(label)} <span style="color:var(--ink-muted);font-size:14px;font-weight:400;">· planet ${s.goalIdx + 1} of ${picked.length}</span></h2>
-      <p class="su-sub">Pick a starter goal, write your own, or skip — you can always add goals later.</p>
-      ${s.goalIdx === 0 ? `<input class="fr-input" id="suAbout" placeholder="About you, for better AI ideas (optional) — e.g. college student, loves hiking" value="${escAttr(s.aboutMe)}" maxlength="200" style="width:100%;margin-bottom:10px;">` : ''}
-      <div class="su-chips">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div class="su-planet" style="background:radial-gradient(circle at 35% 30%, ${shade(pColor, 25)}, ${pColor} 60%, ${shade(pColor, -20)} 100%);box-shadow:0 0 16px 3px ${pColor}55;"></div>
+        <h2 style="margin:10px 0 2px;">${escAttr(label)}</h2>
+        <p class="su-hint" style="margin:0;">planet ${s.goalIdx + 1} of ${picked.length}</p>
+      </div>
+      <p class="note-label">Suggestions — tap one</p>
+      <div class="su-chips" style="margin:10px 0 2px;">
         ${ideas.map(t => `<button class="su-chip su-idea ${cur === t ? 'sel' : ''}" data-t="${escAttr(t)}">${escAttr(t)}</button>`).join('')}
         <button class="su-chip" id="suAI">✨ More ideas</button>
       </div>
-      <label class="ge-field">Or write your own<input class="fr-input" id="suGoalInput" placeholder="(optional)" value="${escAttr(cur)}" maxlength="120" style="width:100%;"></label>
-      <p class="su-hint" id="suGoalMsg"></p>
-      <div class="su-actions">
+      <p class="su-hint" id="suGoalMsg" style="margin:4px 0 0;"></p>
+      <div class="su-divider"><span>or</span></div>
+      <input class="fr-input" id="suGoalInput" placeholder="Write your own goal…" value="${escAttr(cur)}" maxlength="120" style="width:100%;">
+      <div class="su-actions" style="margin-top:24px;">
         <button class="ics-btn" id="suBack">Back</button>
         <button class="ics-btn" id="suGoalNext">${s.goalIdx === picked.length - 1 ? 'Finish ✨' : 'Next →'}</button>
         <button class="su-skip" id="suGoalSkip">Skip this planet</button>
-        <button class="su-skip" id="suSkipRest">Skip the rest</button>
+        <button class="su-skip" id="suSkipRest" style="margin-left:14px;">Skip all</button>
       </div>`;
   }
 
@@ -2223,8 +2234,6 @@
       const picked = [...s.picked, ...s.custom];
       const label = picked[s.goalIdx];
       gInput.addEventListener('input', () => { s.goals[label] = gInput.value; });
-      const aboutIn = setupEl.querySelector('#suAbout');
-      if (aboutIn) aboutIn.addEventListener('input', () => { s.aboutMe = aboutIn.value; });
       setupEl.querySelectorAll('.su-idea').forEach(ch => ch.addEventListener('click', () => {
         s.goals[label] = ch.dataset.t;
         renderSetup();
