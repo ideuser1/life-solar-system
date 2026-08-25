@@ -1859,9 +1859,23 @@
       if (!res.ok) return;
       const data = await res.json();
       (data.items || []).filter(it => it.kind === 'unfriend').forEach(handleUnfriend);
-      (data.items || []).filter(it => it.kind !== 'unfriend')
+      (data.items || []).filter(it => it.kind === 'friend').forEach(handleFriendAdd);
+      (data.items || []).filter(it => it.kind !== 'unfriend' && it.kind !== 'friend')
         .slice(0, 6).forEach((it, i) => setTimeout(() => showToast(it), i * 700));
     }catch(e){ /* offline — greetings will still be waiting next time */ }
+  }
+  // a friend added us — add them back automatically (mutual friendship)
+  function handleFriendAdd(it){
+    const code = String(it.fromCode || '');
+    if (!code) return;
+    const ns = social.get();
+    ns.friends = ns.friends || [];
+    if (ns.friends.some(f => f.code === code)) return;
+    ns.friends.push({ code });
+    social.save(ns);
+    if (friendsWrap.style.display === 'block') buildFriends();
+    refreshFriends();
+    showToast({ kind: 'info', msg: String(it.from || 'A friend').slice(0, 40) + ' added you — you\'re now connected both ways.' });
   }
   // a friend removed us — drop them from our list too (mutual unfriending)
   function handleUnfriend(it){
@@ -2085,6 +2099,7 @@
       ns.friends = ns.friends || [];
       if (!ns.friends.some(f => f.code === code)) ns.friends.push({ code }); // name arrives with their summary
       social.save(ns);
+      sendWave(code, 'friend', '', null); // ask their dashboard to add us back
       buildFriends();
       refreshFriends();
     });
