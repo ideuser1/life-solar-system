@@ -188,6 +188,9 @@
   }
   .planet.active ~ .planet-status, .planet-btn.is-active .planet-status{ color:var(--good); }
 
+  /* moons = named goal-groups inside a planet's panel */
+  .moon-h{ margin:14px 0 2px; font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-muted); }
+
   /* view toggle + timeline */
   .view-toggle{ display:flex; justify-content:center; margin-top:16px; }
   .view-toggle button{
@@ -912,7 +915,7 @@
   function openPanel(p){
     const active = isActive(p);
     const goals = p.goals || [];
-    const rows = goals.map((g, gi) => {
+    const rowHtml = (g, gi) => {
       const status = goalOngoing(p, g) ? 'ongoing' : (g.status || 'someday');
       let extras = '';
       if (g.perWeek){
@@ -943,7 +946,14 @@
           ${g.updated ? `<p class="gupdated">Updated ${g.updated}</p>` : ''}
         </div>
       </div>`;
-    }).join('');
+    };
+    // ungrouped goals first, then each moon's goals under a 🌙 heading
+    const withIdx = goals.map((g, gi) => ({ g, gi }));
+    let rows = withIdx.filter(x => !x.g.moon).map(x => rowHtml(x.g, x.gi)).join('');
+    [...new Set(goals.filter(g => g.moon).map(g => g.moon))].forEach(m => {
+      rows += `<p class="moon-h">🌙 ${escAttr(m)}</p>` +
+        withIdx.filter(x => x.g.moon === m).map(x => rowHtml(x.g, x.gi)).join('');
+    });
     panelBody.innerHTML = `
       <h2>${escAttr(p.label)}</h2>
       <div class="status-row ${active ? 'active' : ''}"><span class="dot"></span>${active ? 'Active — goals in motion' : 'Quiet — nothing active right now'}</div>
@@ -1392,6 +1402,7 @@
       <input class="ed-name ge-title" value="${escAttr(g.title)}" placeholder="What's the goal?">
       <label class="ge-field">Due date (optional)<input type="date" class="ed-name ge-due" value="${g.due || ''}"></label>
       <label class="ge-field">Note (optional)<input class="ed-name ge-note" value="${escAttr(g.note)}"></label>
+      <label class="ge-field">Moon — group goals within this planet (optional)<input class="ed-name ge-moon" value="${escAttr(g.moon)}" placeholder="e.g. Grad school"></label>
       <label class="ge-field">Repeats
         <select class="ge-status ge-repeat">
           <option value="" ${!g.perWeek ? 'selected' : ''}>Doesn't repeat</option>
@@ -1472,6 +1483,8 @@
       else if (rep === 'weekly') pw = Math.min(14, Math.max(1, parseInt(card.querySelector('.ge-pw').value, 10) || 3));
       if (due) g.due = due; else delete g.due;
       if (note) g.note = note; else delete g.note;
+      const moon = card.querySelector('.ge-moon').value.trim();
+      if (moon) g.moon = moon; else delete g.moon;
       if (pw > 0){
         g.perWeek = pw;
         // bonus circles are no longer in the editor; keep an existing bonus
